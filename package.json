@@ -1,0 +1,22 @@
+{
+  "name": "prj-mono-eval-desempenno",
+  "module": "index.ts",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "dotnet watch run --project apps/prj-backend-eval-desempenno",
+    "dev:web": "cd apps/prj-frontend-eval-desempenno && bun run dev",
+    "dev": "concurrently \"bun run dev:api\" \"bun run dev:web\"",
+    "clean:web": "rm -rf apps/prj-backend-eval-desempenno/wwwroot/js/home",
+    "build:web": "bun run clean:web && bun run --cwd apps/prj-frontend-eval-desempenno build",
+    "build:api": "dotnet publish apps/prj-backend-eval-desempenno/prj-backend-eval-desempenno.csproj -c Release -o ./publicado",
+    "build": "bun run build:web && bun run build:api"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1"
+  }
+}

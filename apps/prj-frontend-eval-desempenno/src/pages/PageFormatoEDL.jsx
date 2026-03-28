@@ -1,0 +1,348 @@
+import { useState, useRef, useEffect, useMemo } from "react"
+import { useLocation } from "react-router-dom";
+import { useWidthMap } from "../hooks/useWidthMap";
+import { useFetch } from "../hooks/useFetch";
+import Card from "../components/Card"
+import Input from "../components/Input"
+import TextArea from "../components/TextArea";
+import Select from "../components/Select";
+import Checkbox from "../components/Checkbox";
+import Radio from "../components/Radio"
+import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
+
+const PageFormatoEDL = () => {
+  const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
+  const location = useLocation();
+  const usuario = location.state?.value;
+  const cardRadioRef = useRef(null);
+  const currentRef = useRef([]);
+  const cardRef = useRef([]);
+  const widthMap = useWidthMap();
+  const [selected, setSelected] = useState("L");
+  const { data, loading, error } = useFetch(API_RESULT_LISTAR);
+  const [isLoading, setIsLoading] = useState(false);
+  const [configTable, setConfigTable] = useState(() => null);
+  const [mapaListas, setMapaListas] = useState({});
+  const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
+
+  const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
+  const infoMeta = preData?.[0]?.split("|") ?? [];
+  const info = preData?.[1]?.split("|") ?? [];
+
+  const informacion = (infoMeta ?? []).map((meta, idx) => ({
+    data: (info ?? [])[idx] ?? "",
+    metadata: (meta ?? "").split("*"),
+  }));
+
+  const tipoNumero = (s) => /^-?\d+$/.test(s.trim()) ? "entero" : "decimal";
+  const normalizarMapa = (mapa) => {
+    const nuevoMapa = {};
+    Object.entries(mapa).forEach(([key, value]) => {
+      const keys = tipoNumero(key) === "entero" ? [key] : key.split(".");
+      keys.forEach((k) => {
+        if (!nuevoMapa[k]) {
+          nuevoMapa[k] = [];
+        }
+        nuevoMapa[k] = [...nuevoMapa[k], ...value];
+      });
+    });
+    return nuevoMapa;
+  };
+
+  const listasData = useMemo(() => {
+    return (data ?? []).slice(1);
+  }, [data]);
+
+  useEffect(() => {
+    if (!listasData?.length) return;
+    const mapaBase = listasData.reduce((acc, entry) => {
+      const [itemKey, ...opciones] = entry.split("~");
+      acc[itemKey] = opciones;
+      return acc;
+    }, {});
+
+    const mapaNormalizado = normalizarMapa(mapaBase);
+
+    setMapaListas(mapaNormalizado);
+  }, [listasData]);
+
+
+  const metaListaFormatoEvDes = mapaListas?.[41]?.[0];
+  const metaListaFormatDetail = mapaListas?.[42]?.[0];
+
+  // console.log("mapaListas?.[41]", mapaListas?.[41])
+
+  useEffect(() => {
+    informacion.forEach((item) => {
+      const meta = item.metadata;
+      const idx = Number(meta[5]);
+      const tipo = meta[4];
+      if (tipo === "0" && !currentRef.current[idx]) {
+        currentRef.current[idx] = {
+          campo: meta[0],
+          grupo: meta[6],
+          valor: item.data
+        };
+      }
+    });
+  }, [informacion]);
+
+  const configTableBase = useMemo(() => {
+    if (!mapaListas?.[41]?.length) return null;
+    return {
+      title: "Lista de Formatos de Evaluación :",
+      isPaginar: false,
+      listaDatos: mapaListas[41].slice(1),
+      offsetColumnas: 4,
+    };
+  }, [mapaListas]);
+
+  const finalConfigTable = configTable ?? configTableBase;
+
+  const snapshotFormRef = () => {
+    return Object.values(currentRef.current).reduce((acc, ref) => {
+      if (!ref) return acc;
+      const campo = ref.getCampo?.();
+      if (!campo) return acc;
+      acc[campo] = {
+        value: ref.getValue?.() ?? "",
+        tipoCtl: ref.getTipoCtl?.() ?? null,
+      };
+      return acc;
+    }, {});
+  };
+
+  const forEachRef = (refArray, callback) => {
+    Object.values(refArray.current).forEach((ref) => {
+      if (ref) callback(ref);
+    });
+  };
+
+
+  const handleChangeSelect = (campo, valor, label) => {
+    console.log("seleccion:", campo, valor, label)
+  }
+
+  const setLimpiarCtls = () => {
+    forEachRef(currentRef, (ref) => {
+      if (typeof ref.setValue !== "function") return;
+      const tipo = ref.getTipoCtl?.();
+      ref.setValue(tipo === "4" ? "1" : "");
+    });
+  };
+
+  const aplicarModo = (esListar) => {
+    const nuevaLista = esListar
+      ? mapaListas[41].slice(1)
+      : [];
+
+    cardRef.current[1]?.setEnabled(!esListar);
+    cardRef.current[2]?.setHidden(esListar);
+
+    setIsGrabarDisabled(esListar);
+
+    setConfigTable((prev) => ({
+      ...(prev ?? configTableBase),
+      listaDatos: nuevaLista,
+    }));
+  };
+
+  const handleRadioChange = (value) => {
+    setSelected(value);
+    if (value === "L") {
+      aplicarModo(true);
+      setLimpiarCtls()
+    }
+    if (value === "N") {
+      aplicarModo(false);
+    }
+  };
+
+  const handleFilaSeleccionada = (fila) => {
+    console.log("fila", fila)
+  }
+
+  if (loading) {
+    return <div>Cargando datos...</div>;
+  }
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+  if (!data) {
+    return <div>No hay datos disponibles</div>;
+  }
+
+  const renderCampo = (item, idx) => {
+    const meta = item.metadata;
+    const tipo = meta[4];
+    const getBool = (v, def) => (v ? v === "1" : def);
+    if (tipo === "0") {
+      return null;
+    }
+
+    const valorInicialBase = {
+      valor: item.data,
+      campo: meta[0],
+      required: meta[1],
+      max: meta[2],
+      tipo_dato: meta[3],
+      tipo_ctl: tipo,
+    };
+
+    const baseProps = {
+      ref: (el) => (currentRef.current[Number(meta[5])] = el),
+      label: meta[7],
+      labelPosition: Number(meta[9] ?? 0),
+      enabled: getBool(meta?.[10], true),
+      hidden: getBool(meta?.[11], false)
+    };
+
+    switch (tipo) {
+      case "1": // Input
+      case "2": {// Date
+        const inputType = tipo === "2" && "2" || "1";
+
+        return (
+          <Input
+            key={idx}
+            type={inputType}
+            {...baseProps}
+            valorInicial={{
+              ...valorInicialBase
+            }}
+            span={Number(meta[8] ?? 8)}
+            value={item.data}
+          />
+        );}
+
+      case "3": // Checkbox
+        return (
+          <Checkbox
+            key={idx}
+            {...{...baseProps, labelWidth: meta[5]?.trim() === "9" ? 210 : 180}}
+            valorInicial={{
+              ...valorInicialBase
+            }}
+            span={Number(meta[8] ?? 8)}
+            value={item.data === "" || item.data === "1"}
+          />
+        );
+
+      case "4": // Select
+        return (
+          <Select
+            key={idx}
+            {...baseProps}
+            valorInicial={{
+              ...valorInicialBase,
+              seleccion : meta[12]
+            }}
+            span={Number(meta[8] ?? 8)}
+            lista={mapaListas[meta[5]]}
+            value={item.data}
+            onChange={(v, lbl) => handleChangeSelect(meta[5], v, lbl)}
+          />
+        );
+
+      case "5": // TextArea
+        return (
+          <TextArea
+            key={idx}
+            {...baseProps}
+            valorInicial={{
+              ...valorInicialBase
+            }}
+            width={meta[8] ? `${meta[8]}%` : "100%"}
+            value={item.data}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const staticCards = {
+    "3": (
+        <>
+        <button
+            disabled={isLoading}
+            className={`px-8 py-2 rounded-md shadow-sm text-white
+              ${isLoading || isGrabarDisabled
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-500 hover:bg-indigo-600 cursor-pointer"
+              }`}
+            onClick={()=>console.log("Grabar..")}
+          >
+            {isLoading ? "Guardando..." : "Grabar"}
+          </button>
+          <button className="px-8 py-2 rounded-md shadow-sm bg-gray-200 text-gray-800 hover:bg-gray-300 cursor-pointer"
+            onClick={()=>setLimpiarCtls()}
+          >
+            Limpiar
+          </button>
+
+        </>
+      )
+  };
+
+  return (
+    <>
+      <Card ref={cardRadioRef} title="" layout="flex" className="w-[30%]">
+        <Radio
+          name="grupo1"
+          value="L"
+          checkedValue={selected}
+          labelPosition={1}
+          label="LISTAR"
+          onChange={handleRadioChange}
+        />
+        <Radio
+          name="grupo1"
+          value="N"
+          checkedValue={selected}
+          labelPosition={1}
+          label="NUEVO"
+          onChange={handleRadioChange}
+        />
+      </Card>
+
+      {mapaListas[22]?.map((row) => {
+        const [refId, title, ancho] = row.split("|");
+        return (
+          <Card
+            key={refId}
+            title={title}
+            layout={refId === "3" ? "flex" : "grid"}
+            hidden={["2", "4"].includes(refId)}
+            enabled={refId === "1" ? false : true}
+            className={widthMap[ancho]}
+            ref={(el) => (cardRef.current[refId] = el)}
+          >
+            {staticCards[refId] ??
+                informacion
+                  .filter((item) => item.metadata[6] === refId)
+                  .map((item, idx) => renderCampo(item, idx))
+            }
+          </Card>
+        );
+      })}
+
+      {finalConfigTable?.listaDatos?.length ? (
+        <BaseTablaMatrizBase
+            configTable={finalConfigTable}
+            handleRadioClick={() => {}}
+            handleCheckDelete={() => {}}
+            isEditing={false}
+            onSelect={handleFilaSeleccionada}
+          />
+        ): null
+      }
+
+
+
+    </>
+  );
+};
+
+export default PageFormatoEDL;

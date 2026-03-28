@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@layer base {
+    :root {
+        --color-primary: #197fe6;
+        --color-primary-soft: #197fe6e6;
+        --color-bg-light: #f8fafc;
+    }
+    html {
+        font-family: "Inter", sans-serif;
+    }
+    body {
+        @apply antialiased h-screen overflow-hidden;
+        color: #0f172a;
+    }
+
+    /* Material Symbols */
+    .material-symbols-outlined {
+        font-variation-settings:
+            "FILL" 0,
+            "wght" 400,
+            "GRAD" 0,
+            "opsz" 24;
+    }
+    /* Glass effect */
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+}
+
+@layer base {
+    /* Hack visual para input date */
+    input[type="date"]::before {
+        content: attr(data-placeholder);
+        color: #9ca3af;
+    }
+
+    input[type="date"]:focus::before,
+    input[type="date"]:valid::before {
+        display: none;
+    }
+}
+
+@layer components {
+    /* Primary helpers */
+    .bg-primary {
+        background-color: var(--color-primary);
+    }
+    .bg-primary-soft {
+        background-color: var(--color-primary-soft);
+    }
+    .text-primary {
+        color: var(--color-primary);
+    }
+    .border-primary {
+        border-color: var(--color-primary);
+    }
+}
