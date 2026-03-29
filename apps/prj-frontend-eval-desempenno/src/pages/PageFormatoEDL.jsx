@@ -189,9 +189,15 @@ const PageFormatoEDL = () => {
     return resultado;
   };
 
-  const handleFilaSeleccionada = (fila) => {
+  const handleFilaSeleccionada = (fila, titulo) => {
     aplicarModo(false);
+
     const size = fila.length;
+
+    console.log("fila", fila)
+    console.log("titulo", titulo)
+
+
 
     if (size > 10) {
       setDesmarcarRadios(true);
@@ -447,12 +453,12 @@ const PageFormatoEDL = () => {
       })}
 
       {finalConfigTable?.listaDatos?.length ? (
-        <BaseTablaMatrizBase
+          <BaseTablaMatrizBase
             configTable={finalConfigTable}
             handleRadioClick={() => {}}
             handleCheckDelete={() => {}}
             isEditing={false}
-            onSelect={handleFilaSeleccionada}
+            onSelect={(fila)=> handleFilaSeleccionada(fila, finalConfigTable?.title)}
           />
         ): null
       }
