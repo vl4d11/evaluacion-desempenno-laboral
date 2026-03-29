@@ -62,7 +62,7 @@ const Fila = memo(
         return (
           <div
             key={j}
-            className="px-2 py-2 font-semibold text-left overflow-hidden whitespace-nowrap"
+            className="px-2 py-2 font-normal text-left overflow-hidden whitespace-nowrap"
             style={{
               width: `${col[1]}px`,
               minWidth: `${col[1]}px`,

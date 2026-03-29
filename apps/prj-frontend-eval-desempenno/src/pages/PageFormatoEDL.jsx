@@ -19,11 +19,14 @@ const PageFormatoEDL = () => {
   const cardRef = useRef([]);
   const widthMap = useWidthMap();
   const [selected, setSelected] = useState("L");
+  const [desmarcarRadios, setDesmarcarRadios] = useState(false);
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
   const [isLoading, setIsLoading] = useState(false);
   const [configTable, setConfigTable] = useState(() => null);
+  const [listaData, setListaData] = useState([]);
   const [mapaListas, setMapaListas] = useState({});
   const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
+  const [showModalDetalle, setShowModalDetalle] = useState(false);
 
   const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
   const infoMeta = preData?.[0]?.split("|") ?? [];
@@ -70,7 +73,7 @@ const PageFormatoEDL = () => {
   const metaListaFormatoEvDes = mapaListas?.[41]?.[0];
   const metaListaFormatDetail = mapaListas?.[42]?.[0];
 
-  // console.log("mapaListas?.[41]", mapaListas?.[41])
+  // console.log("mapaListas?.[41]", mapaListas?.[22])
 
   useEffect(() => {
     informacion.forEach((item) => {
@@ -86,6 +89,21 @@ const PageFormatoEDL = () => {
       }
     });
   }, [informacion]);
+
+  const cardDetalleConfig = useMemo(() => {
+    const row = mapaListas?.[22]?.find((r) => r.startsWith("4|"));
+    if (!row) return null;
+    const [refId, title, ancho] = row.split("|");
+    return {
+      refId,
+      title,
+      ancho,
+    };
+  }, [mapaListas]);
+
+  const cardDetalleWidth = cardDetalleConfig
+    ? widthMap[cardDetalleConfig.ancho]
+    : "";
 
   const configTableBase = useMemo(() => {
     if (!mapaListas?.[41]?.length) return null;
@@ -135,10 +153,8 @@ const PageFormatoEDL = () => {
     const nuevaLista = esListar
       ? mapaListas[41].slice(1)
       : [];
-
     cardRef.current[1]?.setEnabled(!esListar);
     cardRef.current[2]?.setHidden(esListar);
-
     setIsGrabarDisabled(esListar);
 
     setConfigTable((prev) => ({
@@ -147,19 +163,103 @@ const PageFormatoEDL = () => {
     }));
   };
 
+
   const handleRadioChange = (value) => {
     setSelected(value);
     if (value === "L") {
       aplicarModo(true);
-      setLimpiarCtls()
     }
     if (value === "N") {
       aplicarModo(false);
     }
+    cardRef.current[1].setTitle("Nuevo Formato de Evaluación :")
+    setLimpiarCtls()
+  };
+
+  const logFlatRefs = (grupo) => {
+    const resultado = []
+
+    currentRef.current.forEach((ref) => {
+      if (!ref) return;
+      const hasMethods = Object.keys(ref).some(key => typeof ref[key] === "function");
+      if (!hasMethods && ref.grupo === grupo) {
+        resultado.push({ campo: ref.campo, valor: ref.valor });
+      }
+    });
+    return resultado;
   };
 
   const handleFilaSeleccionada = (fila) => {
-    console.log("fila", fila)
+    aplicarModo(false);
+    const size = fila.length;
+
+    if (size > 10) {
+      setDesmarcarRadios(true);
+      cardRef.current[1].setTitle("Editar Formato de Evaluación :")
+      cardRef.current[2]?.setHidden(true);
+      const metaLista = metaListaFormatoEvDes.split("|")
+
+      metaLista.forEach((idxRef, i) => {
+        const idx = Number(idxRef);
+        if (!idx) return;
+        const value = fila?.[i];
+        if (value !== undefined) {
+          const ref = currentRef.current[idx];
+          if (!ref) return;
+
+          const valTmp = ref?.getTipoCtl?.() === "3"
+            ? (value === "1" ? true : value === "0" ? false : Boolean(value))
+            : value;
+          ref?.setValue?.(valTmp);
+
+          if (typeof ref?.setValor === "function") {
+            ref.setValor(valTmp);
+          } else if (ref) {
+            ref.valor = valTmp;
+          }
+        }
+      });
+
+      const labelGrillaDeta = mapaListas?.[42].slice(1, 3)
+      const cabeceras = logFlatRefs("1")
+      const indiceBuscar = cabeceras[0].valor
+
+      const listaDetalles = mapaListas?.[42]
+        .slice(3)
+        .filter(item => item.split("|")[2] === indiceBuscar)
+        .map(item => {
+          const [, , , keyComp, por, dis] = item.split("|")
+          const nombreComp = mapaListas?.[14].find(p => p.split("|")[0] === keyComp);
+          const nombreCompValue = nombreComp?.split("|")[1] ?? "";
+          return [
+            item,
+            nombreCompValue,
+            Number(por) * 100,
+            dis === "1" ? "SI" : "NO"
+          ].join("|");
+        });
+      listaDetalles.unshift(...labelGrillaDeta)
+
+      setListaData(listaDetalles);
+      setConfigTable((prev) => ({
+        ...prev,
+        title: "Lista de Detalle de Formato Evaluación :",
+        isPaginar: false,
+        listaDatos: listaDetalles,
+        offsetColumnas: 6,
+      }));
+
+      console.log("listaDetalles", listaDetalles)
+    } else {
+      // CARGAR EL DETALLE
+      return
+    }
+
+    console.log("size de la fila seleccionada", size)
+  }
+
+  const handleNuevoDetalle = () => {
+    setShowModalDetalle(true);
   }
 
   if (loading) {
@@ -171,6 +271,11 @@ const PageFormatoEDL = () => {
   if (!data) {
     return <div>No hay datos disponibles</div>;
   }
+
+  const renderCardDetalle = () =>
+    informacion
+      .filter((item) => item.metadata[6] === "4")
+      .map((item, idx) => renderCampo(item, idx));
 
   const renderCampo = (item, idx) => {
     const meta = item.metadata;
@@ -266,13 +371,16 @@ const PageFormatoEDL = () => {
     "3": (
         <>
         <button
-            disabled={isLoading}
-            className={`px-8 py-2 rounded-md shadow-sm text-white
+          disabled={isLoading || isGrabarDisabled}
+          className={`px-8 py-2 rounded-md shadow-sm text-white
               ${isLoading || isGrabarDisabled
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-indigo-500 hover:bg-indigo-600 cursor-pointer"
-              }`}
-            onClick={()=>console.log("Grabar..")}
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-indigo-500 hover:bg-indigo-600 cursor-pointer"
+            }`}
+          onClick={() => {
+            if (isLoading || isGrabarDisabled) return;
+            console.log("Grabar..")
+          }}
           >
             {isLoading ? "Guardando..." : "Grabar"}
           </button>
@@ -292,18 +400,26 @@ const PageFormatoEDL = () => {
         <Radio
           name="grupo1"
           value="L"
-          checkedValue={selected}
+          checkedValue={desmarcarRadios ? undefined : selected}
           labelPosition={1}
           label="LISTAR"
-          onChange={handleRadioChange}
+          onChange={() => {
+            setDesmarcarRadios(false);
+            setSelected("L");
+            handleRadioChange("L");
+          }}
         />
         <Radio
           name="grupo1"
           value="N"
-          checkedValue={selected}
+          checkedValue={desmarcarRadios ? undefined : selected}
           labelPosition={1}
           label="NUEVO"
-          onChange={handleRadioChange}
+          onChange={() => {
+            setDesmarcarRadios(false);
+            setSelected("N");
+            handleRadioChange("N");
+          }}
         />
       </Card>
 
@@ -315,6 +431,8 @@ const PageFormatoEDL = () => {
             title={title}
             layout={refId === "3" ? "flex" : "grid"}
             hidden={["2", "4"].includes(refId)}
+            tieneBoton={["1"].includes(refId)}
+            onAddClick={handleNuevoDetalle}
             enabled={refId === "1" ? false : true}
             className={widthMap[ancho]}
             ref={(el) => (cardRef.current[refId] = el)}
@@ -338,6 +456,41 @@ const PageFormatoEDL = () => {
           />
         ): null
       }
+
+      {showModalDetalle && cardDetalleConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-[60vw] max-w-[1200px]  h-[40vh] flex flex-col">
+            <div className="overflow-auto flex-1">
+              <Card
+                title={cardDetalleConfig.title}
+                layout="grid-justify"
+                hidden={false}
+                enabled={true}
+                className={`${cardDetalleWidth} p-4 [&>*:last-child]:mb-0`}
+              >
+                {renderCardDetalle()}
+              </Card>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded-md"
+                onClick={() => setShowModalDetalle(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 bg-indigo-500 text-white rounded-md"
+                onClick={() => {
+                  console.log("guardar detalle", snapshotFormRef());
+                  setShowModalDetalle(false);
+                }}
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 

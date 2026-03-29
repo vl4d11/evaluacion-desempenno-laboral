@@ -8,7 +8,9 @@ const Card = forwardRef(function Card(
     layout = "grid",
     children,
     hidden = false,
-    enabled = true
+    enabled = true,
+    tieneBoton = false,
+    onAddClick = () => {},
   }, ref) {
   const [titleState, setTitleState] = useState(title);
   const [hiddenState, setHiddenState] = useState(hidden);
@@ -22,6 +24,9 @@ const Card = forwardRef(function Card(
         break;
       case "flex":
         bodyLayout = "flex flex-col sm:flex-row flex-wrap gap-4 items-center";
+        break;
+      case "grid-justify":
+        bodyLayout = "grid grid-cols-24 gap-x-4 gap-y-3 items-end";
         break;
       case "flex-between":
         bodyLayout = "flex flex-col sm:flex-row flex-wrap items-center justify-between gap-4";
@@ -68,8 +73,17 @@ const Card = forwardRef(function Card(
         `}
       >
         {titleState !== "" && (
-          <div className="bg-linear-to-r from-blue-400 to-blue-600 text-white font-extrabold px-4 py-3 shadow-md text-lg">
-            {titleState}
+          <div className="bg-linear-to-r from-blue-400 to-blue-600 text-white font-extrabold px-4 py-3 shadow-md text-lg flex justify-between items-center">
+            <span>{titleState}</span>
+            {tieneBoton && (
+              <button
+                className="bg-white text-blue-600 font-bold px-3 py-1 rounded-md hover:bg-gray-100"
+                disabled={!enabledState}
+                onClick={onAddClick}
+              >
+                +
+              </button>
+            )}
           </div>
         )}
 
