@@ -157,6 +157,7 @@ const PageFormatoEDL = () => {
     cardRef.current[2]?.setHidden(esListar);
     setIsGrabarDisabled(esListar);
 
+    setListaData(nuevaLista);
     setConfigTable((prev) => ({
       ...(prev ?? configTableBase),
       listaDatos: nuevaLista,
@@ -190,16 +191,11 @@ const PageFormatoEDL = () => {
   };
 
   const handleFilaSeleccionada = (fila, titulo) => {
+    const tituloLocal = titulo;
+    const evalCab = tituloLocal?.startsWith("Lista") ?? false;
     aplicarModo(false);
 
-    const size = fila.length;
-
-    console.log("fila", fila)
-    console.log("titulo", titulo)
-
-
-
-    if (size > 10) {
+    if (evalCab) {
       setDesmarcarRadios(true);
       cardRef.current[1].setTitle("Editar Formato de Evaluación :")
       cardRef.current[2]?.setHidden(true);
@@ -249,7 +245,7 @@ const PageFormatoEDL = () => {
       setListaData(listaDetalles);
       setConfigTable((prev) => ({
         ...prev,
-        title: "Lista de Detalle de Formato Evaluación :",
+        title: "Detalle Formato de Evaluación Desempeño :",
         isPaginar: false,
         listaDatos: listaDetalles,
         offsetColumnas: 6,
@@ -258,10 +254,10 @@ const PageFormatoEDL = () => {
       console.log("listaDetalles", listaDetalles)
     } else {
       // CARGAR EL DETALLE
+      console.log("Levantar popup..")
       return
     }
 
-    console.log("size de la fila seleccionada", size)
   }
 
   const handleNuevoDetalle = () => {
@@ -426,7 +422,7 @@ const PageFormatoEDL = () => {
             setSelected("N");
             handleRadioChange("N");
           }}
-        />
+        />label
       </Card>
 
       {mapaListas[22]?.map((row) => {

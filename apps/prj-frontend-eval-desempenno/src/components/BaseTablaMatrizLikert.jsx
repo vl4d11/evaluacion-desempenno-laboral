@@ -40,20 +40,21 @@ const Fila = memo(
           style={{ minWidth: "60px", flexShrink: 0 }}
         >
           <span className="
-                bg-blue-600
-                text-white
-                text-xs
-                font-semibold
-                w-6
-                h-6
-                flex
-                items-center
-                justify-center
-                rounded-full
-                shadow-sm
-              ">
-                {rowNumber}
-              </span>
+            bg-blue-600
+            text-white
+            text-xs
+            font-semibold
+            w-6
+            h-6
+            flex
+            items-center
+            justify-center
+            rounded-full
+            shadow-sm
+            "
+          >
+            {rowNumber}
+          </span>
         </div>
       )}
       {filaFiltrada.map((val, j) => (

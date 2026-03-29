@@ -5,6 +5,8 @@ import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
 import Card from "../components/Card"
 import Select from "../components/Select";
 import { AlertDialog } from "../components/AlertDialog";
+import EncuestaLikert from "../components/EncuestaLikert";
+import useIsMobile from "../hooks/useIsMobile";
 
 const PageEvaluacionDesempenno = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listalikert";
@@ -14,7 +16,6 @@ const PageEvaluacionDesempenno = () => {
   const cardRef = useRef(null);
   const selectRef = useRef(null);
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
-  const [mapaListas, setMapaListas] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [showObsModal, setShowObsModal] = useState(false);
   const [obsData, setObsData] = useState(null);
@@ -23,30 +24,27 @@ const PageEvaluacionDesempenno = () => {
     message: "",
   });
 
+  // const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
+  // const infoMeta = preData?.[0]?.split("|") ?? [];
+  // const info = preData?.[1]?.split("|") ?? [];
 
-  const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
-  const infoMeta = preData?.[0]?.split("|") ?? [];
-  const info = preData?.[1]?.split("|") ?? [];
-
-  const informacion = (infoMeta ?? []).map((meta, idx) => ({
-    data: (info ?? [])[idx] ?? "",
-    metadata: (meta ?? "").split("*"),
-  }));
+  // const informacion = (infoMeta ?? []).map((meta, idx) => ({
+  //   data: (info ?? [])[idx] ?? "",
+  //   metadata: (meta ?? "").split("*"),
+  // }));
 
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
   }, [data]);
 
-  useEffect(() => {
-    if (!listasData?.length) return;
-    const mapaBase = listasData.reduce((acc, entry) => {
+  const mapaListas = useMemo(() => {
+    if (!listasData?.length) return {};
+    return listasData.reduce((acc, entry) => {
       const [itemKey, ...opciones] = entry.split("~");
       acc[itemKey] = opciones;
       return acc;
     }, {});
-    setMapaListas(mapaBase);
   }, [listasData]);
-
 
   const configTable = useMemo(() => {
     if (!mapaListas?.[41]) return;
@@ -58,6 +56,11 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [mapaListas]);
 
+  const preguntas = useMemo(() => {
+    return mapaListas?.[41]?.slice(2) ?? [];
+  }, [mapaListas]);
+
+  const isMobile = useIsMobile(768);
 
   const handleFilaSeleccionada = (fila) => {
     console.log("fila:")
@@ -66,6 +69,8 @@ const PageEvaluacionDesempenno = () => {
   const handleObservacion = (data) => {
       setObsData(data);
       setShowObsModal(true);
+
+      console.log("data", data)
   }
 
   const handleGrabar = () => {
@@ -87,7 +92,7 @@ const PageEvaluacionDesempenno = () => {
 
   return (
     <>
-      <Card ref={cardRef} title="" layout="flex" className="w-[60%]">
+      <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[60%]">
         <label className="flex flex-col gap-2 mb-4 text-4xl">
           <span className="font-normal">Evaluacion de Desempeño de...</span>
         </label>
@@ -102,21 +107,40 @@ const PageEvaluacionDesempenno = () => {
         />
       </Card>
 
-      {configTable?.listaDatos?.length ? (
-        <BaseTablaMatrizLikert
-          ref={tablaRef}
-          configTable={configTable}
-          isEditing={false}
-          rowsPerPage={10}
-          showRowNumber={true}
-          opcionesRadio={mapaListas?.[35]}
-          onSelect={handleFilaSeleccionada}
-          onObsClick={handleObservacion}
-        />
+      {isMobile ? (
+        preguntas.length ? (
+          preguntas.map((item, idx) => {
+            const partes = item.split("|");
+            const pks = partes[0] ?? idx;
+            const texto = partes[1] ?? "";
+            return (
+              <EncuestaLikert
+                key={pks}
+                nro={idx + 1}
+                label={texto}
+                pks={pks}
+                lista={mapaListas?.[35]}
+                onObservacion={handleObservacion}
+              />
+            )
+          })
+        ):null
+      ):(
+        configTable?.listaDatos?.length ? (
+          <BaseTablaMatrizLikert
+            ref={tablaRef}
+            configTable={configTable}
+            isEditing={false}
+            rowsPerPage={10}
+            showRowNumber={true}
+            opcionesRadio={mapaListas?.[35]}
+            onSelect={handleFilaSeleccionada}
+            onObsClick={handleObservacion}
+          />
         ): null
-      }
+      )}
 
-      <Card ref={cardRef} title="" layout="flex" className="w-[40%]">
+      <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[40%] mt-4">
         <button
           disabled={isLoading}
           className={`px-8 py-2 rounded-md shadow-sm text-white
@@ -151,6 +175,12 @@ const PageEvaluacionDesempenno = () => {
             />
 
             <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 text-white rounded-md bg-blue-500 hover:bg-blue-300"
+                onClick={() => setShowObsModal(false)}
+              >
+                Aceptar
+              </button>
               <button
                 className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
                 onClick={() => setShowObsModal(false)}
