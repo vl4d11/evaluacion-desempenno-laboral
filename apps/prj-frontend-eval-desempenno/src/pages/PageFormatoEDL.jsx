@@ -517,7 +517,7 @@ const PageFormatoEDL = () => {
 
       {showModalDetalle && cardDetalleConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-[60vw] max-w-[1200px]  h-[40vh] flex flex-col">
+          <div className="bg-white rounded-xl shadow-xl w-[60vw] max-w-300  h-[40vh] flex flex-col">
             <div className="overflow-auto flex-1">
               <Card
                 title={cardDetalleConfig.title}
