@@ -66,6 +66,7 @@ const Select = forwardRef(function Select(
     getCampo: () => initialValue.current?.campo ?? "",
     getRequired: () => initialValue.current?.required ?? "",
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
+    getGrupo: () => initialValue.current?.grupo ?? "",
     setValue: (v) => {
       if (selectRef.current) selectRef.current.value = v ?? "";
     },

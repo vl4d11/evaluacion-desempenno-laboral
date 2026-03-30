@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useLocation } from "react-router-dom";
 import { useWidthMap } from "../hooks/useWidthMap";
 import { useFetch } from "../hooks/useFetch";
@@ -17,16 +17,19 @@ const PageFormatoEDL = () => {
   const cardRadioRef = useRef(null);
   const currentRef = useRef([]);
   const cardRef = useRef([]);
+  const isEditModeRef = useRef(false);
   const widthMap = useWidthMap();
   const [selected, setSelected] = useState("L");
   const [desmarcarRadios, setDesmarcarRadios] = useState(false);
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
   const [isLoading, setIsLoading] = useState(false);
-  const [configTable, setConfigTable] = useState(() => null);
+  const [configTable, setConfigTable] = useState(null);
   const [listaData, setListaData] = useState([]);
   const [mapaListas, setMapaListas] = useState({});
   const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
   const [showModalDetalle, setShowModalDetalle] = useState(false);
+  const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
+
 
   const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
   const infoMeta = preData?.[0]?.split("|") ?? [];
@@ -38,7 +41,8 @@ const PageFormatoEDL = () => {
   }));
 
   const tipoNumero = (s) => /^-?\d+$/.test(s.trim()) ? "entero" : "decimal";
-  const normalizarMapa = (mapa) => {
+
+  const normalizarMapa = useCallback((mapa) => {
     const nuevoMapa = {};
     Object.entries(mapa).forEach(([key, value]) => {
       const keys = tipoNumero(key) === "entero" ? [key] : key.split(".");
@@ -50,7 +54,7 @@ const PageFormatoEDL = () => {
       });
     });
     return nuevoMapa;
-  };
+  },[]);
 
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
@@ -65,15 +69,39 @@ const PageFormatoEDL = () => {
     }, {});
 
     const mapaNormalizado = normalizarMapa(mapaBase);
-
     setMapaListas(mapaNormalizado);
-  }, [listasData]);
 
+  }, [listasData, normalizarMapa]);
+
+
+  const cardDetalleConfig = useMemo(() => {
+    const row = mapaListas?.[22]?.find((r) => r.startsWith("4|"));
+    if (!row) return null;
+    const [refId, title, ancho] = row.split("|");
+    return {
+      refId,
+      title,
+      ancho,
+    };
+  }, [mapaListas]);
+
+  const configTableBase = useMemo(() => {
+    if (!mapaListas?.[41]?.length) return null;
+    return {
+      title: "Lista de Formatos de Evaluación :",
+      isPaginar: false,
+      listaDatos: mapaListas[41].slice(1),
+      offsetColumnas: 4,
+    };
+  }, [mapaListas]);
 
   const metaListaFormatoEvDes = mapaListas?.[41]?.[0];
   const metaListaFormatDetail = mapaListas?.[42]?.[0];
 
-  // console.log("mapaListas?.[41]", mapaListas?.[22])
+  const configTableFinal = configTable ?? configTableBase;
+  const cardDetalleWidth = cardDetalleConfig
+    ? widthMap[cardDetalleConfig.ancho]
+    : "";
 
   useEffect(() => {
     informacion.forEach((item) => {
@@ -90,32 +118,35 @@ const PageFormatoEDL = () => {
     });
   }, [informacion]);
 
-  const cardDetalleConfig = useMemo(() => {
-    const row = mapaListas?.[22]?.find((r) => r.startsWith("4|"));
-    if (!row) return null;
-    const [refId, title, ancho] = row.split("|");
-    return {
-      refId,
-      title,
-      ancho,
-    };
-  }, [mapaListas]);
+  useEffect(() => {
+    if (!showModalDetalle || !isEditModeRef.current) return;
+    const metaLista = metaListaFormatDetail.split("|");
 
-  const cardDetalleWidth = cardDetalleConfig
-    ? widthMap[cardDetalleConfig.ancho]
-    : "";
+    metaLista.forEach((idxRef, i) => {
+      const idx = Number(idxRef);
+      if (!idx) return;
+      const value = detalleSeleccionado?.[i];
+      if (value !== undefined) {
+        const ref = currentRef.current[idx];
+        if (!ref) return;
+        const valTmp =
+          ref?.getTipoCtl?.() === "3"
+            ? value === "1"
+              ? true
+              : value === "0"
+              ? false
+              : Boolean(value)
+            : value;
 
-  const configTableBase = useMemo(() => {
-    if (!mapaListas?.[41]?.length) return null;
-    return {
-      title: "Lista de Formatos de Evaluación :",
-      isPaginar: false,
-      listaDatos: mapaListas[41].slice(1),
-      offsetColumnas: 4,
-    };
-  }, [mapaListas]);
-
-  const finalConfigTable = configTable ?? configTableBase;
+        ref?.setValue?.(valTmp);
+        if (typeof ref?.setValor === "function") {
+          ref.setValor(valTmp);
+        } else {
+          ref.valor = valTmp;
+        }
+      }
+    });
+  }, [showModalDetalle, detalleSeleccionado, metaListaFormatDetail]);
 
   const snapshotFormRef = () => {
     return Object.values(currentRef.current).reduce((acc, ref) => {
@@ -133,6 +164,27 @@ const PageFormatoEDL = () => {
   const forEachRef = (refArray, callback) => {
     Object.values(refArray.current).forEach((ref) => {
       if (ref) callback(ref);
+    });
+  };
+
+  const snapshotFormRef_Clean = (refArray, grupo) => {
+    if (!refArray?.current) return;
+    forEachRef(refArray, (ref) => {
+      if (grupo && ref.grupo !== grupo) return;
+      if (typeof ref.setValue === "function") {
+        const tipo = ref.getTipoCtl?.();
+        if (tipo === "4") {
+          ref.setValue("1");
+        } else if (tipo === "3") {
+          ref.setValue(false);
+        } else {
+          ref.setValue("");
+        }
+        return;
+      }
+      if ("valor" in ref) {
+        ref.valor = "";
+      }
     });
   };
 
@@ -158,12 +210,11 @@ const PageFormatoEDL = () => {
     setIsGrabarDisabled(esListar);
 
     setListaData(nuevaLista);
-    setConfigTable((prev) => ({
-      ...(prev ?? configTableBase),
+    setConfigTable({
+      ...configTableBase,
       listaDatos: nuevaLista,
-    }));
+    });
   };
-
 
   const handleRadioChange = (value) => {
     setSelected(value);
@@ -190,12 +241,12 @@ const PageFormatoEDL = () => {
     return resultado;
   };
 
-  const handleFilaSeleccionada = (fila, titulo) => {
-    const tituloLocal = titulo;
+  const handleFilaSeleccionada = (fila) => {
+    const tituloLocal = configTable?.title ?? configTableBase?.title;
     const evalCab = tituloLocal?.startsWith("Lista") ?? false;
-    aplicarModo(false);
 
     if (evalCab) {
+      aplicarModo(false);
       setDesmarcarRadios(true);
       cardRef.current[1].setTitle("Editar Formato de Evaluación :")
       cardRef.current[2]?.setHidden(true);
@@ -208,12 +259,15 @@ const PageFormatoEDL = () => {
         if (value !== undefined) {
           const ref = currentRef.current[idx];
           if (!ref) return;
-
           const valTmp = ref?.getTipoCtl?.() === "3"
-            ? (value === "1" ? true : value === "0" ? false : Boolean(value))
+            ? value === "1"
+              ? true
+              : value === "0"
+              ? false
+              : Boolean(value)
             : value;
-          ref?.setValue?.(valTmp);
 
+          ref?.setValue?.(valTmp);
           if (typeof ref?.setValor === "function") {
             ref.setValor(valTmp);
           } else if (ref) {
@@ -243,24 +297,25 @@ const PageFormatoEDL = () => {
       listaDetalles.unshift(...labelGrillaDeta)
 
       setListaData(listaDetalles);
-      setConfigTable((prev) => ({
-        ...prev,
+      setConfigTable({
+        ...configTableBase,
         title: "Detalle Formato de Evaluación Desempeño :",
         isPaginar: false,
         listaDatos: listaDetalles,
         offsetColumnas: 6,
-      }));
-
-      console.log("listaDetalles", listaDetalles)
+      });
     } else {
       // CARGAR EL DETALLE
-      console.log("Levantar popup..")
-      return
+      isEditModeRef.current = true;
+      setDetalleSeleccionado(fila);
+      setShowModalDetalle(true);
     }
-
   }
 
   const handleNuevoDetalle = () => {
+    isEditModeRef.current = false;
+    setDetalleSeleccionado(null);
+    snapshotFormRef_Clean(currentRef, "4");
     setShowModalDetalle(true);
   }
 
@@ -294,6 +349,7 @@ const PageFormatoEDL = () => {
       max: meta[2],
       tipo_dato: meta[3],
       tipo_ctl: tipo,
+      grupo: meta[6],
     };
 
     const baseProps = {
@@ -422,7 +478,7 @@ const PageFormatoEDL = () => {
             setSelected("N");
             handleRadioChange("N");
           }}
-        />label
+        />
       </Card>
 
       {mapaListas[22]?.map((row) => {
@@ -448,13 +504,13 @@ const PageFormatoEDL = () => {
         );
       })}
 
-      {finalConfigTable?.listaDatos?.length ? (
+      {configTableFinal?.listaDatos?.length ? (
           <BaseTablaMatrizBase
-            configTable={finalConfigTable}
+            configTable={configTableFinal}
             handleRadioClick={() => {}}
             handleCheckDelete={() => {}}
             isEditing={false}
-            onSelect={(fila)=> handleFilaSeleccionada(fila, finalConfigTable?.title)}
+            onSelect={handleFilaSeleccionada}
           />
         ): null
       }

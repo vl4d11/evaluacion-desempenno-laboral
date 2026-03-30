@@ -42,6 +42,7 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
             font-normal
             text-gray-800
             leading-tight
+            text-[15px]
            "
           >
             {label}

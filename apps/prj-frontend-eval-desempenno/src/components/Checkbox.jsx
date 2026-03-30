@@ -52,6 +52,7 @@ const Checkbox = forwardRef(function Checkbox(
     getCampo: () => initialValue.current?.campo ?? "",
     getRequired: () => initialValue.current?.required ?? "",
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
+    getGrupo: () => initialValue.current?.grupo ?? "",
     setValue: (v) => setChecked(!!v),
     setValor: (v) => {
       initialValue.current.valor = (v === "1" || v === 1 || v === true);

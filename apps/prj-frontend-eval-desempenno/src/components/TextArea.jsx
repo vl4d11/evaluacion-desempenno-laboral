@@ -48,6 +48,7 @@ const TextArea = forwardRef(function TextArea(
     getCampo: () => initialValue.current?.campo ?? "",
     getRequired: () => initialValue.current?.required ?? "",
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
+    getGrupo: () => initialValue.current?.grupo ?? "",
     setValue: (v) => {
       if (inputRef.current) inputRef.current.value = v ?? "";
     },

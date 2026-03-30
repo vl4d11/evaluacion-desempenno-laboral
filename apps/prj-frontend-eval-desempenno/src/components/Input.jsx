@@ -70,6 +70,7 @@ const Input = forwardRef(function Input(
     getCampo: () => initialValue.current?.campo ?? "",
     getRequired: () => initialValue.current?.required ?? "",
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
+    getGrupo: () => initialValue.current?.grupo ?? "",
     setValue: (v) => {
       const val = v ?? "";
       if (usarHook) {
