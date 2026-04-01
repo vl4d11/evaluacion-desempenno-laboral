@@ -16,7 +16,7 @@ const PageCompetencias = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaCompetencias";
   const API_RESULT_MANTEN = "/llamada/fetch/mante_competencia"
   const location = useLocation();
-  const usuario = location.state?.value;
+  const usuarioMatriz = location.state?.value;
   const currentRef = useRef([]);
   const cardRef = useRef([]);
   const chkRef = useRef(null);
@@ -52,6 +52,8 @@ const PageCompetencias = () => {
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
   }, [data]);
+
+  const usuario = usuarioMatriz?.split("|")?.[0]
 
   useEffect(() => {
     if (!listasData?.length) return;

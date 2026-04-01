@@ -35,8 +35,16 @@ function LoginBase() {
       try {
         const result = await login(usuario, password);
         if (result.ok) {
-          loginAuth();
-          navigateTo.go("/menu");
+          const raw = result?.data[0] ?? "";
+          loginAuth({usuario: raw });
+
+          const ctaMenus = raw.split("|")?.[1]
+          if (ctaMenus === "1") {
+            navigateTo.go("/menu/070400-repo");
+          } else {
+            navigateTo.go("/menu");
+          }
+
         } else {
           console.log("Error:", result.error);
         }

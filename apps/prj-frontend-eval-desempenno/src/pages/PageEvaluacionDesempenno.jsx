@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from "react"
-import { useLocation } from "react-router-dom";
 import { useFetch } from "../hooks/useFetch";
 import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
 import Card from "../components/Card"
@@ -7,11 +6,11 @@ import Select from "../components/Select";
 import { AlertDialog } from "../components/AlertDialog";
 import EncuestaLikert from "../components/EncuestaLikert";
 import useIsMobile from "../hooks/useIsMobile";
+import useAuth from "../hooks/useAuth";
 
 const PageEvaluacionDesempenno = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listalikert";
-  const location = useLocation();
-  const usuario = location.state?.value;
+  const { usuario } = useAuth();
   const tablaRef = useRef(null);
   const cardRef = useRef(null);
   const selectRef = useRef(null);
@@ -56,6 +55,8 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [mapaListas]);
 
+  const [usuarioID, unico, nombre] = usuario?.split("|") ?? "";
+
   const preguntas = useMemo(() => {
     return mapaListas?.[41]?.slice(2) ?? [];
   }, [mapaListas]);
@@ -94,17 +95,25 @@ const PageEvaluacionDesempenno = () => {
     <>
       <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[60%]">
         <label className="flex flex-col gap-2 mb-4 text-4xl">
-          <span className="font-normal">Evaluacion de Desempeño de...</span>
+          <span className="font-normal">Evaluacion Desempeño</span>
         </label>
-        <Select
-          label="Seleccione un colaborador:"
-          ref={selectRef}
-          lista={mapaListas?.[17]}
-          value="2"
-          valorInicial={{valor: "dato inicio", campo: "12.34",seleccion: "1" }}
-          span={12}
-          labelPosition={0}
-        />
+        {unico === "1" ? (
+            <div className="flex flex-col items-start text-left">
+              <span className="font-normal">COLABORADOR :</span>
+              <span className="font-bold">{nombre}</span>
+            </div>
+          ):(
+            <Select
+              label="Seleccione un colaborador:"
+              ref={selectRef}
+              lista={mapaListas?.[17]}
+              value="2"
+              valorInicial={{valor: "dato inicio", campo: "12.34",seleccion: "1" }}
+              span={12}
+              labelPosition={0}
+            />
+        )}
+
       </Card>
 
       {isMobile ? (

@@ -42,6 +42,16 @@ export default function Menu() {
 
   const [posId, ...newData] = data;
 
+  const ctaMenus = data?.[0]?.split("|")?.[1];
+
+  if (ctaMenus === "1") {
+    return (
+      <PageLayout>
+        <Outlet />
+      </PageLayout>
+    );
+  }
+
   const parsedData = newData.map((item) => {
     const [codigo, nombre] = item.split("|");
     return { codigo, nombre };
@@ -81,6 +91,7 @@ export default function Menu() {
         <button
           onClick={toggleMenu}
           className="h-full rounded hover:bg-green-700 transition flex items-center justify-center"
+          style={{touchAction: "manipulation"}}
         >
           <img
           src={`${ASSETS_BASE}/images/icons8-men.svg`}
@@ -101,10 +112,11 @@ export default function Menu() {
       </nav>
 
       <SwipeableDrawer
+        disableSwipeToOpen
         anchor="left"
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onOpen={toggleMenu}
+        onOpen={()=> setMenuOpen(true)}
         sx={{
           "& .MuiDrawer-paper": {
             top: "48px",
