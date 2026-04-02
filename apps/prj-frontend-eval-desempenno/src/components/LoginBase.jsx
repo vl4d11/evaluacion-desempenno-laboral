@@ -6,18 +6,24 @@ import useAuth from "../hooks/useAuth";
 function LoginBase() {
   const { login, error } = useData();
   const { login: loginAuth, isAuth } = useAuth();
+  const navigateTo = useNavigateTo();
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({ usuario: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
-  const navigateTo = useNavigateTo();
 
   const ASSETS_BASE = import.meta.env.VITE_API_BASE ?? "";
 
   useEffect(() => {
-    if (isAuth) {
+    if (!isAuth) return;
+    const ctaMenus = sessionStorage.getItem("ctaMenus");
+    if (!ctaMenus) return;
+    if (ctaMenus === "1") {
+      navigateTo.go("/menu/070400-repo", { replace: true });
+    } else {
       navigateTo.go("/menu", { replace: true });
     }
+
   }, [isAuth, navigateTo]);
 
   const handleLogin = async () => {
@@ -36,14 +42,9 @@ function LoginBase() {
         const result = await login(usuario, password);
         if (result.ok) {
           const raw = result?.data[0] ?? "";
-          loginAuth({usuario: raw });
-
-          const ctaMenus = raw.split("|")?.[1]
-          if (ctaMenus === "1") {
-            navigateTo.go("/menu/070400-repo");
-          } else {
-            navigateTo.go("/menu");
-          }
+          loginAuth({ usuario: raw });
+          const ctaMenus = raw.split("|")?.[1];
+          sessionStorage.setItem("ctaMenus", ctaMenus);
 
         } else {
           console.log("Error:", result.error);

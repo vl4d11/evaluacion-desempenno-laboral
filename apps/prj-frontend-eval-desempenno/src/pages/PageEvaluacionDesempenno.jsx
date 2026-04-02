@@ -7,10 +7,13 @@ import { AlertDialog } from "../components/AlertDialog";
 import EncuestaLikert from "../components/EncuestaLikert";
 import useIsMobile from "../hooks/useIsMobile";
 import useAuth from "../hooks/useAuth";
+import { useNavigateTo } from "../utils/useNavigateTo";
+import { clearFetchCache } from "../hooks/useFetch";
 
 const PageEvaluacionDesempenno = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listalikert";
-  const { usuario } = useAuth();
+  const { usuario, logout } = useAuth();
+  const navigateTo = useNavigateTo();
   const tablaRef = useRef(null);
   const cardRef = useRef(null);
   const selectRef = useRef(null);
@@ -64,7 +67,7 @@ const PageEvaluacionDesempenno = () => {
   const isMobile = useIsMobile(768);
 
   const handleFilaSeleccionada = (fila) => {
-    console.log("fila:")
+    console.log("fila:", fila)
   }
 
   const handleObservacion = (data) => {
@@ -80,6 +83,12 @@ const PageEvaluacionDesempenno = () => {
       message: "Datos modificados...",
     });
   }
+
+  const handleLogout = () => {
+    clearFetchCache();
+    logout();
+    navigateTo.replace("/");
+  };
 
   if (loading) {
     return <div>Cargando datos...</div>;
@@ -166,6 +175,14 @@ const PageEvaluacionDesempenno = () => {
         >
           Limpiar
         </button>
+        {unico === "1" ? (
+          <button className="px-8 py-2 rounded-md shadow-sm bg-gray-200 text-gray-800 hover:bg-gray-300 cursor-pointer"
+            onClick={handleLogout}
+          >
+            SALIR
+          </button>
+          ):null
+        }
       </Card>
 
       {showObsModal && (

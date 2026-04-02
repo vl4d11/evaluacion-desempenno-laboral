@@ -3,6 +3,7 @@ import { createContext, useState } from "react";
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+
   const [isAuth, setIsAuth] = useState(() => {
     const auth = sessionStorage.getItem("auth");
     return auth === "ok";
@@ -14,8 +15,7 @@ export function AuthProvider({ children }) {
   });
 
   const login = (data = {}) => {
-    const user = data.usuario ?? null;
-
+    const user = data.usuario ?? "";
     sessionStorage.setItem("auth", "ok");
     sessionStorage.setItem("usuario", JSON.stringify(user));
 

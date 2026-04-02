@@ -31,7 +31,7 @@ export default function Menu() {
   const ASSETS_BASE = import.meta.env.VITE_API_BASE ?? "";
 
   const navigateTo = useNavigateTo();
-  const { logout } = useAuth();
+  const { logout, isAuth } = useAuth();
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleSubItem = (codigo) =>
@@ -43,6 +43,8 @@ export default function Menu() {
   const [posId, ...newData] = data;
 
   const ctaMenus = data?.[0]?.split("|")?.[1];
+
+  if (!isAuth) return null;
 
   if (ctaMenus === "1") {
     return (
@@ -82,7 +84,7 @@ export default function Menu() {
   const handleLogout = () => {
     clearFetchCache();
     logout();
-    navigateTo.go("/");
+    navigateTo.replace("/");
   };
 
   return (
