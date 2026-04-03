@@ -9,6 +9,8 @@ import Select from "../components/Select";
 import Checkbox from "../components/Checkbox";
 import Radio from "../components/Radio"
 import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { AlertDialog } from "../components/AlertDialog";
 
 const PageFormatoEDL = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
@@ -27,8 +29,19 @@ const PageFormatoEDL = () => {
   const [listaData, setListaData] = useState([]);
   const [mapaListas, setMapaListas] = useState({});
   const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
-  const [showModalDetalle, setShowModalDetalle] = useState(false);
+  const [showModalDetalle, setShowModalDetalle] = useState(
+    { open: false, title: "" }
+  );
   const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
+  const [alertState, setAlertState] = useState({
+    visible: false,
+    message: "",
+  });
+  const [showConfirm, setShowConfirm] = useState({
+    visible: false,
+    message: "",
+    onConfirm: null,
+  });
 
 
   const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
@@ -103,6 +116,14 @@ const PageFormatoEDL = () => {
     ? widthMap[cardDetalleConfig.ancho]
     : "";
 
+  const openModal = (title) => {
+    setShowModalDetalle({ open: true, title });
+  };
+
+  const closeModal = () => {
+    setShowModalDetalle(prev => ({ ...prev, open: false }));
+  };
+
   useEffect(() => {
     informacion.forEach((item) => {
       const meta = item.metadata;
@@ -119,7 +140,7 @@ const PageFormatoEDL = () => {
   }, [informacion]);
 
   useEffect(() => {
-    if (!showModalDetalle || !isEditModeRef.current) return;
+    if (!showModalDetalle.open || !isEditModeRef.current) return;
     const metaLista = metaListaFormatDetail.split("|");
 
     metaLista.forEach((idxRef, i) => {
@@ -148,24 +169,83 @@ const PageFormatoEDL = () => {
     });
   }, [showModalDetalle, detalleSeleccionado, metaListaFormatDetail]);
 
-  const snapshotFormRef = () => {
-    return Object.values(currentRef.current).reduce((acc, ref) => {
-      if (!ref) return acc;
-      const campo = ref.getCampo?.();
-      if (!campo) return acc;
-      acc[campo] = {
-        value: ref.getValue?.() ?? "",
-        tipoCtl: ref.getTipoCtl?.() ?? null,
-      };
-      return acc;
-    }, {});
-  };
-
   const forEachRef = (refArray, callback) => {
     Object.values(refArray.current).forEach((ref) => {
       if (ref) callback(ref);
     });
   };
+
+  const snapshotFormRef_ByGrupo = (refArray, grupo, esNuevo, pks = {}) => {
+    const dataCampoPlano = [];
+    const dataValorPlano = [];
+
+    const dataValorCompleta = []
+    const dataCampoCtrl = [];
+    const dataValorCtrl = [];
+    let pasa = true;
+    let pkIndex = 0;
+
+    forEachRef(refArray, (ref) => {
+      const grupoRef =
+        typeof ref?.getGrupo === "function"
+          ? ref.getGrupo()
+          : ref.grupo;
+
+      if (grupo && grupoRef !== grupo) return;
+      const isControl = typeof ref?.getValue === "function";
+      if (!isControl) {
+        const campo = ref.campo;
+        if (!campo) return;
+        if (esNuevo && pks.length > pkIndex) {
+          ref.valor = pks[pkIndex++];
+        }
+        const value = ref.valor ?? "";
+        dataCampoPlano.push(campo);
+        dataValorPlano.push(value);
+
+        dataValorCompleta.push(value)
+        return;
+      }
+      ref.setError(false);
+      const required = ref.getRequired?.();
+      const isEqual = ref.isEqualBase?.();
+      const campo = ref.getCampo?.();
+      const val = ref.getValue?.();
+      if (!campo) return;
+
+      const value =
+        typeof val === "string"
+          ? val.trim()
+          : typeof val === "boolean"
+            ? val ? "1" : "0"
+            : val ?? "";
+
+      if (required === "1" && value === "") {
+        ref.setError(true);
+        pasa = false;
+      }
+      if (esNuevo) {
+        dataCampoCtrl.push(campo);
+        dataValorCtrl.push(value);
+      } else {
+        if (!isEqual) {
+          dataCampoCtrl.push(campo);
+          dataValorCtrl.push(value);
+        }
+      }
+
+      dataValorCompleta.push(value)
+    });
+    return {
+      dataCampoPlano,
+      dataValorPlano,
+      dataCampoCtrl,
+      dataValorCtrl,
+      pasa,
+      dataValorCompleta
+    };
+  };
+
 
   const snapshotFormRef_Clean = (refArray, grupo) => {
     if (!refArray?.current) return;
@@ -195,9 +275,15 @@ const PageFormatoEDL = () => {
 
   const setLimpiarCtls = () => {
     forEachRef(currentRef, (ref) => {
-      if (typeof ref.setValue !== "function") return;
-      const tipo = ref.getTipoCtl?.();
-      ref.setValue(tipo === "4" ? "1" : "");
+      if (!ref) return;
+      if (typeof ref.setValue === "function") {
+        const tipo = ref.getTipoCtl?.();
+        ref.setValue(["3", "4"].includes(tipo) ? "1" : "");
+        ref.setError(false);
+      }
+      if ("valor" in ref) {
+        ref.valor = "";
+      }
     });
   };
 
@@ -308,7 +394,7 @@ const PageFormatoEDL = () => {
       // CARGAR EL DETALLE
       isEditModeRef.current = true;
       setDetalleSeleccionado(fila);
-      setShowModalDetalle(true);
+      openModal("Editar");
     }
   }
 
@@ -316,7 +402,211 @@ const PageFormatoEDL = () => {
     isEditModeRef.current = false;
     setDetalleSeleccionado(null);
     snapshotFormRef_Clean(currentRef, "4");
-    setShowModalDetalle(true);
+    openModal("Nuevo");
+  }
+
+  const handleAceptarModal = () => {
+    const NUEVO_DETALLE = !isEditModeRef.current;
+    const titulo = cardRef.current[1].getTitle();
+    const NUEVO_GLOBAL = titulo.startsWith("Nuevo");
+
+    const indice = currentRef.current[1].valor
+    const pks = [null, indice]
+    const {
+      dataCampoPlano,
+      dataValorPlano,
+      dataCampoCtrl,
+      dataValorCtrl,
+      pasa,
+      dataValorCompleta
+    } = snapshotFormRef_ByGrupo(currentRef, "4", NUEVO_DETALLE, pks);
+
+    if (!pasa) {
+      return;
+    } else if (dataCampoCtrl.length === 0) {
+      setAlertState({
+        visible: true,
+        message: "NO existen Datos modificados...",
+      });
+    } else {
+      closeModal();
+      const dataValor = [...dataValorPlano, ...dataValorCtrl]
+
+      if (NUEVO_DETALLE && !NUEVO_GLOBAL) {
+
+        const transforms = {
+          0: () => [""],
+          1: (item, idx, datos) => datos,
+          2: (item) => {
+            const nombreComp = mapaListas?.[14]
+              .find(p => p.split("|")[0] === item)
+              ?.split("|")[1] ?? "";
+            return [nombreComp];
+          },
+          3: (item) => [Math.trunc(Number(item) * 100)],
+          4: (item) => [item === "1" ? "SI" : "NO"],
+        };
+
+        const nuevaFilaStr = dataValor.flatMap((item, idx, datos) => {
+          return transforms[idx]?.(item, idx, datos) ?? [];
+        }).join("|");
+
+        const nuevaLista = [
+          ...(configTable?.listaDatos ?? []),
+          nuevaFilaStr
+        ];
+
+        setListaData(nuevaLista);
+        setConfigTable({
+          ...configTableBase,
+          listaDatos: nuevaLista,
+          offsetColumnas: 6,
+        });
+
+      } else if (NUEVO_DETALLE && NUEVO_GLOBAL) {
+
+        cardRef.current[2]?.setHidden(true);
+
+        const transforms = {
+          0: () => [""],
+          1: (item, idx, datos) => datos,
+          2: (item) => {
+            const nombreComp = mapaListas?.[14]
+              .find(p => p.split("|")[0] === item)
+              ?.split("|")[1] ?? "";
+            return [nombreComp];
+          },
+          3: (item) => [Math.trunc(Number(item) * 100)],
+          4: (item) => [item === "1" ? "SI" : "NO"],
+        };
+
+        const fila = dataValor
+          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
+          .join("|");
+
+        let nuevaLista;
+        if (configTable?.listaDatos.length === 0) {
+          const labelGrillaDeta = mapaListas?.[42].slice(1, 3);
+          nuevaLista = [...labelGrillaDeta, fila];
+        } else {
+          nuevaLista = [
+            ...(configTable?.listaDatos ?? []),
+            fila
+          ];
+        }
+
+        setListaData(nuevaLista);
+        setConfigTable({
+          ...configTableBase,
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+          listaDatos: nuevaLista,
+          offsetColumnas: 6,
+        });
+
+      } else if (!NUEVO_DETALLE && !NUEVO_GLOBAL) {
+
+        const transforms = {
+          0: () => [""],
+          1: (item, idx, datos) => datos,
+          2: (item) => {
+            const nombreComp = mapaListas?.[14]
+              .find(p => p.split("|")[0] === item)
+              ?.split("|")[1] ?? "";
+            return [nombreComp];
+          },
+          3: (item) => [Math.trunc(Number(item) * 100)],
+          4: (item) => [item === "1" ? "SI" : "NO"],
+        };
+
+        const fila = dataValorCompleta
+          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
+          .join("|");
+
+        const result = fila.split("|")[1]
+        const listaEditada = (listaData ?? []).map(row => {
+          const id = row.split("|")[1];
+          return id === String(result) ? fila : row;
+        });
+
+        setListaData(listaEditada);
+        setConfigTable({
+          ...configTableBase,
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+          listaDatos: listaEditada,
+          offsetColumnas: 6,
+        });
+
+      } else if (!NUEVO_DETALLE && NUEVO_GLOBAL) {
+
+        const transforms = {
+          0: () => [""],
+          1: (item, idx, datos) => datos,
+          2: (item) => {
+            const nombreComp = mapaListas?.[14]
+              .find(p => p.split("|")[0] === item)
+              ?.split("|")[1] ?? "";
+            return [nombreComp];
+          },
+          3: (item) => [Math.trunc(Number(item) * 100)],
+          4: (item) => [item === "1" ? "SI" : "NO"],
+        };
+
+        const fila = dataValorCompleta
+          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
+          .join("|");
+
+        const result = fila.split("|")[1]
+        const listaEditada = (listaData ?? []).map(row => {
+          const id = row.split("|")[1];
+          return id === String(result) ? fila : row;
+        });
+
+        setListaData(listaEditada);
+        setConfigTable({
+          ...configTableBase,
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+          listaDatos: listaEditada,
+          offsetColumnas: 6,
+        });
+      }
+    }
+  }
+
+  const handleRecopilaPreGrabar = () => {
+    const titulo = cardRef.current[1].getTitle();
+    const NUEVO = titulo.startsWith("Nuevo");
+    const indice = currentRef.current[1].valor
+    const pks = [indice]
+    const {
+      dataCampoPlano,
+      dataValorPlano,
+      dataCampoCtrl,
+      dataValorCtrl,
+      pasa
+    } = snapshotFormRef_ByGrupo(currentRef, "1", NUEVO, pks);
+
+    if (!pasa) {
+      return;
+    } else if (dataCampoCtrl.length === 0) {
+      setAlertState({
+        visible: true,
+        message: "NO existen Datos modificados...",
+      });
+    } else {
+      const dataCampo = [...dataCampoPlano, ...dataCampoCtrl].join("|")
+      const dataValor = [...dataValorPlano, ...dataValorCtrl].join("|")
+      const enviar = [dataCampo, dataValor].join("|")
+
+      console.log("salida:", enviar);
+
+      console.log("CamposPlano:", dataCampoPlano);
+      console.log("ValoresPlano:", dataValorPlano);
+      console.log("Campos Ctrl:", dataCampoCtrl);
+      console.log("Valores Ctrl:", dataValorCtrl);
+    }
   }
 
   if (loading) {
@@ -437,7 +727,7 @@ const PageFormatoEDL = () => {
             }`}
           onClick={() => {
             if (isLoading || isGrabarDisabled) return;
-            console.log("Grabar..")
+            handleRecopilaPreGrabar();
           }}
           >
             {isLoading ? "Guardando..." : "Grabar"}
@@ -515,16 +805,17 @@ const PageFormatoEDL = () => {
         ): null
       }
 
-      {showModalDetalle && cardDetalleConfig && (
+      {showModalDetalle.open && cardDetalleConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-xl w-[60vw] max-w-300  h-[40vh] flex flex-col">
             <div className="overflow-auto flex-1">
               <Card
-                title={cardDetalleConfig.title}
+                title={[showModalDetalle.title, cardDetalleConfig?.title].filter(Boolean).join(" ")}
                 layout="grid-justify"
                 hidden={false}
                 enabled={true}
                 className={`${cardDetalleWidth} p-4 [&>*:last-child]:mb-0`}
+                ref={(el) => (cardRef.current[cardDetalleConfig.refId] = el)}
               >
                 {renderCardDetalle()}
               </Card>
@@ -532,22 +823,38 @@ const PageFormatoEDL = () => {
             <div className="flex justify-end gap-2 px-4 py-3 border-t">
               <button
                 className="px-4 py-2 bg-gray-200 rounded-md"
-                onClick={() => setShowModalDetalle(false)}
+                onClick={closeModal}
               >
                 Cancelar
               </button>
               <button
                 className="px-4 py-2 bg-indigo-500 text-white rounded-md"
-                onClick={() => {
-                  console.log("guardar detalle", snapshotFormRef());
-                  setShowModalDetalle(false);
-                }}
+                onClick={handleAceptarModal}
               >
                 Agregar
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {alertState.visible && (
+        <AlertDialog
+          message={alertState.message}
+          onClose={() => setAlertState({ visible: false, message: "" })}
+        />
+      )}
+      {showConfirm.visible && (
+        <ConfirmDialog
+          message={showConfirm.message}
+          onConfirm={() => {
+            showConfirm.onConfirm?.();
+            setShowConfirm({ visible: false, message: "", onConfirm: null });
+          }}
+          onCancel={() =>
+            setShowConfirm({ visible: false, message: "", onConfirm: null })
+          }
+        />
       )}
 
 
