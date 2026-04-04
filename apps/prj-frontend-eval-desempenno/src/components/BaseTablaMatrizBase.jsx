@@ -114,6 +114,7 @@ export const BaseTablaMatrizBase = ({
   handleCheckDelete,
   isEditing,
   onSelect,
+  onSelectWithIndex,
   rowsPerPage = 20,
   showRowNumber = false,
 }) => {
@@ -500,8 +501,16 @@ export const BaseTablaMatrizBase = ({
                 }}
                 onDoubleClick={() => {
                   setSelectedIndex(virtualRow.index);
-                  if (filaItem && onSelect) {
-                    onSelect(filaItem.completa);
+                  if (filaItem) {
+                    const headerOffset = listaDatos.length - dataRows.length;
+                    const pageStart = isPaginar ? start : 0;
+                    const originalIndex = headerOffset + pageStart + virtualRow.index;
+
+                    onSelect?.(filaItem.completa);
+                    onSelectWithIndex?.({
+                      fila: filaItem.completa,
+                      index: originalIndex,
+                    });
                   }
                 }}
                 listaLength={listaDatos.length}

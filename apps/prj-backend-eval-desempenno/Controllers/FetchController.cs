@@ -120,4 +120,28 @@ public class FetchController : Controller
         }
     }
 
+    [HttpPost("grabar_formatoEval")]
+    public string GrabarForm()
+    {
+        try
+        {
+            string rpta = "";
+            string data = Request.Form["data"].ToString();
+
+            daSQL odaSQL = new daSQL(_configuration, "CNX");
+            rpta = odaSQL.ejecutarComando("dbo.usp_mantenimiento_cabecera_detalle_bucle", "@data", data);
+            if (rpta == "")
+            {
+                _logger.LogError("dbo.usp_mantenimiento_cabecera_detalle_bucle '{data}'", data);
+                rpta = "error";
+            }
+            return rpta;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al guardar la data...");
+            return "error";
+        }
+    }
+
 }

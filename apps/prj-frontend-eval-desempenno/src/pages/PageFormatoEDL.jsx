@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useFetch } from "../hooks/useFetch";
+import useLazyFetch from "../hooks/useLazyFetch";
+
 import { useLocation } from "react-router-dom";
 import { useWidthMap } from "../hooks/useWidthMap";
-import { useFetch } from "../hooks/useFetch";
+
 import Card from "../components/Card"
 import Input from "../components/Input"
 import TextArea from "../components/TextArea";
@@ -12,8 +15,10 @@ import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AlertDialog } from "../components/AlertDialog";
 
+
 const PageFormatoEDL = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
+  const API_RESULT_MANTEN = "/llamada/fetch/grabar_formatoEval"
   const location = useLocation();
   const usuario = location.state?.value;
   const cardRadioRef = useRef(null);
@@ -23,8 +28,14 @@ const PageFormatoEDL = () => {
   const widthMap = useWidthMap();
   const [selected, setSelected] = useState("L");
   const [desmarcarRadios, setDesmarcarRadios] = useState(false);
+
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
+  const { runFetch } = useLazyFetch();
+
   const [isLoading, setIsLoading] = useState(false);
+  const [malResult, setMalResult] = useState("")
+  const [sentOK, setsentOK] = useState(true);
+
   const [configTable, setConfigTable] = useState(null);
   const [listaData, setListaData] = useState([]);
   const [mapaListas, setMapaListas] = useState({});
@@ -33,6 +44,7 @@ const PageFormatoEDL = () => {
     { open: false, title: "" }
   );
   const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
+  const [filaSeleccionadaConIndex, setFilaSeleccionadaConIndex] = useState(null);
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
@@ -67,7 +79,7 @@ const PageFormatoEDL = () => {
       });
     });
     return nuevoMapa;
-  },[]);
+  }, []);
 
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
@@ -116,6 +128,13 @@ const PageFormatoEDL = () => {
     ? widthMap[cardDetalleConfig.ancho]
     : "";
 
+  const esperarRenderCompleto = () =>
+    new Promise((resolve) =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(resolve)
+      )
+    );
+
   const openModal = (title) => {
     setShowModalDetalle({ open: true, title });
   };
@@ -123,6 +142,14 @@ const PageFormatoEDL = () => {
   const closeModal = () => {
     setShowModalDetalle(prev => ({ ...prev, open: false }));
   };
+
+  useEffect(() => {
+    if (!malResult) return;
+    const timer = setTimeout(() => {
+      setMalResult("");
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [malResult]);
 
   useEffect(() => {
     informacion.forEach((item) => {
@@ -155,8 +182,8 @@ const PageFormatoEDL = () => {
             ? value === "1"
               ? true
               : value === "0"
-              ? false
-              : Boolean(value)
+                ? false
+                : Boolean(value)
             : value;
 
         ref?.setValue?.(valTmp);
@@ -173,6 +200,25 @@ const PageFormatoEDL = () => {
     Object.values(refArray.current).forEach((ref) => {
       if (ref) callback(ref);
     });
+  };
+
+  const transformarValor = (grupo, val, nroRef) => {
+    let value =
+      typeof val === "string"
+        ? val.trim()
+        : typeof val === "boolean"
+          ? val ? "1" : "0"
+          : val ?? "";
+
+    const debeMultiplicar =
+      (grupo === "1" && [4, 6].includes(nroRef)) ||
+      (grupo === "4" && [15].includes(nroRef));
+
+    if (debeMultiplicar) {
+      const num = Number(value);
+      return isNaN(num) ? value : (num / 100).toFixed(2);
+    }
+    return value;
   };
 
   const snapshotFormRef_ByGrupo = (refArray, grupo, esNuevo, pks = {}) => {
@@ -209,16 +255,11 @@ const PageFormatoEDL = () => {
       ref.setError(false);
       const required = ref.getRequired?.();
       const isEqual = ref.isEqualBase?.();
+      const nroRef = ref.getNroRef?.();
       const campo = ref.getCampo?.();
       const val = ref.getValue?.();
       if (!campo) return;
-
-      const value =
-        typeof val === "string"
-          ? val.trim()
-          : typeof val === "boolean"
-            ? val ? "1" : "0"
-            : val ?? "";
+      const value = transformarValor(grupoRef, val, nroRef);
 
       if (required === "1" && value === "") {
         ref.setError(true);
@@ -246,7 +287,6 @@ const PageFormatoEDL = () => {
     };
   };
 
-
   const snapshotFormRef_Clean = (refArray, grupo) => {
     if (!refArray?.current) return;
     forEachRef(refArray, (ref) => {
@@ -268,9 +308,8 @@ const PageFormatoEDL = () => {
     });
   };
 
-
   const handleChangeSelect = (campo, valor, label) => {
-    console.log("seleccion:", campo, valor, label)
+    return;
   }
 
   const setLimpiarCtls = () => {
@@ -285,6 +324,7 @@ const PageFormatoEDL = () => {
         ref.valor = "";
       }
     });
+    setListaData([])
   };
 
   const aplicarModo = (esListar) => {
@@ -327,7 +367,8 @@ const PageFormatoEDL = () => {
     return resultado;
   };
 
-  const handleFilaSeleccionada = (fila) => {
+  const handleFilaSeleccionada = ({ fila, index }) => {
+    setFilaSeleccionadaConIndex({ fila, index });
     const tituloLocal = configTable?.title ?? configTableBase?.title;
     const evalCab = tituloLocal?.startsWith("Lista") ?? false;
 
@@ -376,7 +417,7 @@ const PageFormatoEDL = () => {
           return [
             item,
             nombreCompValue,
-            Number(por) * 100,
+            por,
             dis === "1" ? "SI" : "NO"
           ].join("|");
         });
@@ -405,10 +446,26 @@ const PageFormatoEDL = () => {
     openModal("Nuevo");
   }
 
+  const buildFila = (data, lista14) => {
+    const transforms = {
+      0: () => [""],
+      1: (_, __, datos) => datos,
+      2: (item) => [lista14
+          .find(p => p.split("|")[0] === item)
+          ?.split("|")[1] ?? ""],
+      3: (item) => [item],
+      4: (item) => [item === "1" ? "SI" : "NO"],
+    };
+
+    return data
+      .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
+      .join("|");
+  };
+
   const handleAceptarModal = () => {
     const NUEVO_DETALLE = !isEditModeRef.current;
     const titulo = cardRef.current[1].getTitle();
-    const NUEVO_GLOBAL = titulo.startsWith("Nuevo");
+    const NUEVO_GLOBAL = titulo.toUpperCase().startsWith("NUEVO");
 
     const indice = currentRef.current[1].valor
     const pks = [null, indice]
@@ -421,165 +478,134 @@ const PageFormatoEDL = () => {
       dataValorCompleta
     } = snapshotFormRef_ByGrupo(currentRef, "4", NUEVO_DETALLE, pks);
 
-    if (!pasa) {
-      return;
-    } else if (dataCampoCtrl.length === 0) {
+    if (!pasa) return;
+    if (dataCampoCtrl.length === 0) {
       setAlertState({
         visible: true,
         message: "NO existen Datos modificados...",
       });
-    } else {
-      closeModal();
-      const dataValor = [...dataValorPlano, ...dataValorCtrl]
+      return;
+    }
 
-      if (NUEVO_DETALLE && !NUEVO_GLOBAL) {
+    closeModal();
+    const dataValor = [...dataValorPlano, ...dataValorCtrl]
+    const filaNuevo = buildFila(dataValor, mapaListas?.[14]);
+    const filaEdit = buildFila(dataValorCompleta, mapaListas?.[14]);
 
-        const transforms = {
-          0: () => [""],
-          1: (item, idx, datos) => datos,
-          2: (item) => {
-            const nombreComp = mapaListas?.[14]
-              .find(p => p.split("|")[0] === item)
-              ?.split("|")[1] ?? "";
-            return [nombreComp];
-          },
-          3: (item) => [Math.trunc(Number(item) * 100)],
-          4: (item) => [item === "1" ? "SI" : "NO"],
-        };
+    const updateState = (lista, extraConfig = {}) => {
+      setListaData(lista);
+      setConfigTable({
+        ...configTableBase,
+        offsetColumnas: 6,
+        ...extraConfig,
+        listaDatos: lista,
+      });
+    };
 
-        const nuevaFilaStr = dataValor.flatMap((item, idx, datos) => {
-          return transforms[idx]?.(item, idx, datos) ?? [];
-        }).join("|");
-
-        const nuevaLista = [
+    if (NUEVO_DETALLE) {
+      let nuevaLista
+      if (configTable?.listaDatos.length === 0) {
+        const labelGrillaDeta = mapaListas?.[42].slice(1, 3);
+        nuevaLista = NUEVO_GLOBAL
+          ? [...labelGrillaDeta, filaNuevo]
+          : [filaNuevo];
+      } else {
+        nuevaLista = [
           ...(configTable?.listaDatos ?? []),
-          nuevaFilaStr
+          filaNuevo
         ];
-
-        setListaData(nuevaLista);
-        setConfigTable({
-          ...configTableBase,
-          listaDatos: nuevaLista,
-          offsetColumnas: 6,
-        });
-
-      } else if (NUEVO_DETALLE && NUEVO_GLOBAL) {
-
-        cardRef.current[2]?.setHidden(true);
-
-        const transforms = {
-          0: () => [""],
-          1: (item, idx, datos) => datos,
-          2: (item) => {
-            const nombreComp = mapaListas?.[14]
-              .find(p => p.split("|")[0] === item)
-              ?.split("|")[1] ?? "";
-            return [nombreComp];
-          },
-          3: (item) => [Math.trunc(Number(item) * 100)],
-          4: (item) => [item === "1" ? "SI" : "NO"],
-        };
-
-        const fila = dataValor
-          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
-          .join("|");
-
-        let nuevaLista;
-        if (configTable?.listaDatos.length === 0) {
-          const labelGrillaDeta = mapaListas?.[42].slice(1, 3);
-          nuevaLista = [...labelGrillaDeta, fila];
-        } else {
-          nuevaLista = [
-            ...(configTable?.listaDatos ?? []),
-            fila
-          ];
-        }
-
-        setListaData(nuevaLista);
-        setConfigTable({
-          ...configTableBase,
-          title: "Detalle Formato de Evaluación Desempeño :",
-          isPaginar: false,
-          listaDatos: nuevaLista,
-          offsetColumnas: 6,
-        });
-
-      } else if (!NUEVO_DETALLE && !NUEVO_GLOBAL) {
-
-        const transforms = {
-          0: () => [""],
-          1: (item, idx, datos) => datos,
-          2: (item) => {
-            const nombreComp = mapaListas?.[14]
-              .find(p => p.split("|")[0] === item)
-              ?.split("|")[1] ?? "";
-            return [nombreComp];
-          },
-          3: (item) => [Math.trunc(Number(item) * 100)],
-          4: (item) => [item === "1" ? "SI" : "NO"],
-        };
-
-        const fila = dataValorCompleta
-          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
-          .join("|");
-
-        const result = fila.split("|")[1]
-        const listaEditada = (listaData ?? []).map(row => {
-          const id = row.split("|")[1];
-          return id === String(result) ? fila : row;
-        });
-
-        setListaData(listaEditada);
-        setConfigTable({
-          ...configTableBase,
-          title: "Detalle Formato de Evaluación Desempeño :",
-          isPaginar: false,
-          listaDatos: listaEditada,
-          offsetColumnas: 6,
-        });
-
-      } else if (!NUEVO_DETALLE && NUEVO_GLOBAL) {
-
-        const transforms = {
-          0: () => [""],
-          1: (item, idx, datos) => datos,
-          2: (item) => {
-            const nombreComp = mapaListas?.[14]
-              .find(p => p.split("|")[0] === item)
-              ?.split("|")[1] ?? "";
-            return [nombreComp];
-          },
-          3: (item) => [Math.trunc(Number(item) * 100)],
-          4: (item) => [item === "1" ? "SI" : "NO"],
-        };
-
-        const fila = dataValorCompleta
-          .flatMap((item, idx, datos) => transforms[idx]?.(item, idx, datos) ?? [])
-          .join("|");
-
-        const result = fila.split("|")[1]
-        const listaEditada = (listaData ?? []).map(row => {
-          const id = row.split("|")[1];
-          return id === String(result) ? fila : row;
-        });
-
-        setListaData(listaEditada);
-        setConfigTable({
-          ...configTableBase,
-          title: "Detalle Formato de Evaluación Desempeño :",
-          isPaginar: false,
-          listaDatos: listaEditada,
-          offsetColumnas: 6,
-        });
       }
+
+      if (NUEVO_GLOBAL) cardRef.current[2]?.setHidden(true);
+
+      updateState(nuevaLista, {
+        title: "Detalle Formato de Evaluación Desempeño :",
+        isPaginar: false,
+      });
+
+    } else {
+      const fila = filaEdit;
+      const idFila = fila.split("|")[1];
+
+      const listaEditada = (listaData ?? []).map((row, idx) => {
+        const rowId = row.split("|")[1];
+        if (idFila) {
+          return rowId === String(idFila) ? fila : row;
+        } else if (filaSeleccionadaConIndex?.index !== undefined) {
+          return idx === filaSeleccionadaConIndex.index ? fila : row;
+        }
+        return row;
+      });
+
+      updateState(listaEditada, {
+        title: "Detalle Formato de Evaluación Desempeño :",
+        isPaginar: false,
+      });
     }
   }
 
-  const handleRecopilaPreGrabar = () => {
+  const getCamposPorGrupo = (refArray, grupo) => {
+    const campos = [];
+    forEachRef(refArray, (ref) => {
+      const grupoRef =
+        typeof ref?.getGrupo === "function" ? ref.getGrupo() : ref.grupo;
+      if (grupo && grupoRef !== grupo) return;
+      const isControl = typeof ref?.getValue === "function";
+      let campo;
+      if (isControl) {
+        campo = ref.getCampo?.()
+      } else {
+        campo = ref.campo
+      }
+      if(campo) campos.push(campo)
+    });
+    return [campos.length, ...campos].join("|");
+  };
+
+  const handleApiEnvio = async (datosEnv) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setMalResult("");
+
+    console.log("datosEnv", datosEnv)
+
     const titulo = cardRef.current[1].getTitle();
-    const NUEVO = titulo.startsWith("Nuevo");
+    const NUEVO = titulo.toUpperCase().startsWith("NUEVO");
+    const formData = new FormData();
+    formData.append("data", datosEnv);
+    try {
+      const result = await runFetch(API_RESULT_MANTEN, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (typeof result === "string"
+        && !result.toLowerCase().startsWith("error")) {
+        cardRef.current[3].setTitle("")
+        setsentOK(true)
+        setMalResult("SE ACTUALIZO LA INFORMACION...");
+
+        console.log("result", result)
+
+
+      } else {
+        setsentOK(false)
+        setMalResult("No se pudo Guardar la informacion...");
+      }
+    } catch (err) {
+      console.error("Error tecnico:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleRecopilaPreGrabar = async () => {
+    const titulo = cardRef.current[1].getTitle();
+    const NUEVO = titulo.toUpperCase().startsWith("NUEVO");
     const indice = currentRef.current[1].valor
     const pks = [indice]
+
+    await esperarRenderCompleto();
     const {
       dataCampoPlano,
       dataValorPlano,
@@ -596,16 +622,44 @@ const PageFormatoEDL = () => {
         message: "NO existen Datos modificados...",
       });
     } else {
-      const dataCampo = [...dataCampoPlano, ...dataCampoCtrl].join("|")
-      const dataValor = [...dataValorPlano, ...dataValorCtrl].join("|")
-      const enviar = [dataCampo, dataValor].join("|")
+      if (NUEVO && listaData?.length === 0) {
+        setAlertState({
+          visible: true,
+          message: "Debe almenos tener un registro de Detalle...",
+        });
+      } else {
+        const dataCampo = dataCampoPlano.concat(dataCampoCtrl).join("|")
+        const dataValor = dataValorPlano.concat(dataValorCtrl).join("|")
 
-      console.log("salida:", enviar);
+        console.log("NUEVO DATA CAMPO", dataCampo)
+        console.log("NUEVO DATA VALOR", dataValor)
 
-      console.log("CamposPlano:", dataCampoPlano);
-      console.log("ValoresPlano:", dataValorPlano);
-      console.log("Campos Ctrl:", dataCampoCtrl);
-      console.log("Valores Ctrl:", dataValorCtrl);
+        const listaCabecera =
+          [usuario.split("|")[0], dataCampo, dataValor].join("|")
+
+        if (NUEVO) {
+          const listaDetalle = listaData
+            .slice(2)
+            .map(item => item.split("|").slice(1, 6).join("|")).join("|")
+
+          const listaDetalleEnviar =
+            [getCamposPorGrupo(currentRef, "4"), listaDetalle].join("|")
+
+          const dataEnviar =
+            [listaCabecera, listaDetalleEnviar].join("~")
+
+          console.log("dataEnviar", dataEnviar)
+
+          setShowConfirm({
+            visible: true,
+            message: "¿Deseas Guardar la Informacion ?",
+            onConfirm: () => handleApiEnvio(dataEnviar)
+          })
+        } else {
+
+          console.log("Enviando Detalles")
+        }
+      }
     }
   }
 
@@ -639,6 +693,7 @@ const PageFormatoEDL = () => {
       max: meta[2],
       tipo_dato: meta[3],
       tipo_ctl: tipo,
+      nro_ref: meta[5],
       grupo: meta[6],
     };
 
@@ -654,7 +709,6 @@ const PageFormatoEDL = () => {
       case "1": // Input
       case "2": {// Date
         const inputType = tipo === "2" && "2" || "1";
-
         return (
           <Input
             key={idx}
@@ -666,7 +720,8 @@ const PageFormatoEDL = () => {
             span={Number(meta[8] ?? 8)}
             value={item.data}
           />
-        );}
+        )
+      };
 
       case "3": // Checkbox
         return (
@@ -737,6 +792,16 @@ const PageFormatoEDL = () => {
           >
             Limpiar
           </button>
+          {malResult && (
+            <p className={`text-center
+              ${sentOK
+                ? "text-green-800 text-lg font-semibold"
+                : "text-red-600 text-sm"
+              }`}
+            >
+              {malResult}
+            </p>
+          )}
 
         </>
       )
@@ -800,7 +865,7 @@ const PageFormatoEDL = () => {
             handleRadioClick={() => {}}
             handleCheckDelete={() => {}}
             isEditing={false}
-            onSelect={handleFilaSeleccionada}
+            onSelectWithIndex={handleFilaSeleccionada}
           />
         ): null
       }

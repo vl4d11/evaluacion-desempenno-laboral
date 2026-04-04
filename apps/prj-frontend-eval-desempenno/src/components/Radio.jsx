@@ -54,6 +54,7 @@ const Radio = forwardRef(function Radio(
     getRequired: () => initialValue.current?.required ?? "",
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
     getGrupo: () => initialValue.current?.grupo ?? "",
+    getNroRef: () => initialValue.current?.nro_ref ?? "",
     setValue: (v) => setChecked(v === value),
     setValor: (v) => {
       initialValue.current.valor = v;
