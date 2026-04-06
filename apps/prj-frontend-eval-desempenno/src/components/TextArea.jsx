@@ -50,6 +50,7 @@ const TextArea = forwardRef(function TextArea(
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
     getGrupo: () => initialValue.current?.grupo ?? "",
     getNroRef: () => initialValue.current?.nro_ref ?? "",
+    getPosi: () => initialValue.current?.posicion ?? "",
     setValue: (v) => {
       if (inputRef.current) inputRef.current.value = v ?? "";
     },

@@ -14,7 +14,7 @@ import Radio from "../components/Radio"
 import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AlertDialog } from "../components/AlertDialog";
-
+import MD5 from "crypto-js/md5";
 
 const PageFormatoEDL = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
@@ -135,6 +135,28 @@ const PageFormatoEDL = () => {
       )
     );
 
+  const obtenerCambiosDetalle = () => {
+    if (!listaData || listaData.length === 0) return [];
+    return listaData.slice(2).reduce((acc, item) => {
+      const partes = item.split("|");
+      const hash = partes[0];
+      const pk = partes[1];
+      const pkPadre = partes[2];
+      const codComp = partes[3];
+      const porc = partes[4];
+      const disp = partes[5];
+      const hashCompara = MD5(`${pk}|${pkPadre}|${codComp}|${porc}|${disp}`)
+        .toString()
+        .toLowerCase();
+
+      if (hash !== hashCompara) {
+        console.log("ITEM HASH:", item)
+        acc.push([pk, pkPadre, codComp, porc, disp].join("|"));
+      }
+      return acc;
+    }, []);
+  }
+
   const openModal = (title) => {
     setShowModalDetalle({ open: true, title });
   };
@@ -157,10 +179,13 @@ const PageFormatoEDL = () => {
       const idx = Number(meta[5]);
       const tipo = meta[4];
       if (tipo === "0" && !currentRef.current[idx]) {
+        const [grupo, posicion] = meta[6]?.split(".") ?? [];
         currentRef.current[idx] = {
           campo: meta[0],
-          grupo: meta[6],
-          valor: item.data
+          grupo,
+          posicion,
+          valor: item.data,
+          nroRef:idx
         };
       }
     });
@@ -177,7 +202,9 @@ const PageFormatoEDL = () => {
       if (value !== undefined) {
         const ref = currentRef.current[idx];
         if (!ref) return;
-        const valTmp =
+
+        let valTmp
+        valTmp =
           ref?.getTipoCtl?.() === "3"
             ? value === "1"
               ? true
@@ -185,6 +212,14 @@ const PageFormatoEDL = () => {
                 ? false
                 : Boolean(value)
             : value;
+
+        if (idxRef === "15" && valTmp !== "") {
+          const num = Number(valTmp);
+          if (!isNaN(num) && num % 1 !== 0) {
+            valTmp = String(Math.round(num * 100))
+          }
+        }
+
 
         ref?.setValue?.(valTmp);
         if (typeof ref?.setValor === "function") {
@@ -202,7 +237,7 @@ const PageFormatoEDL = () => {
     });
   };
 
-  const transformarValor = (grupo, val, nroRef) => {
+  const transformarValor = (grupo, val, nroRef, grabar = false) => {
     let value =
       typeof val === "string"
         ? val.trim()
@@ -210,18 +245,22 @@ const PageFormatoEDL = () => {
           ? val ? "1" : "0"
           : val ?? "";
 
-    const debeMultiplicar =
-      (grupo === "1" && [4, 6].includes(nroRef)) ||
-      (grupo === "4" && [15].includes(nroRef));
+    if (value === "") return "";
 
-    if (debeMultiplicar) {
-      const num = Number(value);
-      return isNaN(num) ? value : (num / 100).toFixed(2);
+    if (grabar) {
+      const debeMultiplicar =
+        (grupo === "1" && ["4", "6"].includes(nroRef)) ||
+        (grupo === "4" && ["15"].includes(nroRef));
+
+      if (debeMultiplicar) {
+        const num = Number(value);
+        return isNaN(num) ? value : (num / 100).toFixed(2);
+      }
     }
     return value;
   };
 
-  const snapshotFormRef_ByGrupo = (refArray, grupo, esNuevo, pks = {}) => {
+  const snapshotFormRef_ByGrupo = (refArray, grupo, esNuevo, pks = {}, grabar = false) => {
     const dataCampoPlano = [];
     const dataValorPlano = [];
 
@@ -231,6 +270,8 @@ const PageFormatoEDL = () => {
     let pasa = true;
     let pkIndex = 0;
 
+    // console.log("es nuevo", esNuevo)
+
     forEachRef(refArray, (ref) => {
       const grupoRef =
         typeof ref?.getGrupo === "function"
@@ -239,6 +280,7 @@ const PageFormatoEDL = () => {
 
       if (grupo && grupoRef !== grupo) return;
       const isControl = typeof ref?.getValue === "function";
+
       if (!isControl) {
         const campo = ref.campo;
         if (!campo) return;
@@ -252,6 +294,7 @@ const PageFormatoEDL = () => {
         dataValorCompleta.push(value)
         return;
       }
+
       ref.setError(false);
       const required = ref.getRequired?.();
       const isEqual = ref.isEqualBase?.();
@@ -259,7 +302,8 @@ const PageFormatoEDL = () => {
       const campo = ref.getCampo?.();
       const val = ref.getValue?.();
       if (!campo) return;
-      const value = transformarValor(grupoRef, val, nroRef);
+
+      const value = transformarValor(grupoRef, val, nroRef, grabar);
 
       if (required === "1" && value === "") {
         ref.setError(true);
@@ -269,6 +313,7 @@ const PageFormatoEDL = () => {
         dataCampoCtrl.push(campo);
         dataValorCtrl.push(value);
       } else {
+        // console.log("isEqual", isEqual, "nroRef", nroRef)
         if (!isEqual) {
           dataCampoCtrl.push(campo);
           dataValorCtrl.push(value);
@@ -277,6 +322,7 @@ const PageFormatoEDL = () => {
 
       dataValorCompleta.push(value)
     });
+
     return {
       dataCampoPlano,
       dataValorPlano,
@@ -386,6 +432,7 @@ const PageFormatoEDL = () => {
         if (value !== undefined) {
           const ref = currentRef.current[idx];
           if (!ref) return;
+
           const valTmp = ref?.getTipoCtl?.() === "3"
             ? value === "1"
               ? true
@@ -417,7 +464,7 @@ const PageFormatoEDL = () => {
           return [
             item,
             nombreCompValue,
-            por,
+            String(Math.round(Number(por) *100)),
             dis === "1" ? "SI" : "NO"
           ].join("|");
         });
@@ -449,7 +496,12 @@ const PageFormatoEDL = () => {
   const buildFila = (data, lista14) => {
     const transforms = {
       0: () => [""],
-      1: (_, __, datos) => datos,
+      1: (_, __, datos) =>
+        datos.map((item, i) =>
+          i === 3 && item !== ""
+            ? (Number(item) / 100).toFixed(2)
+              : item
+        ),
       2: (item) => [lista14
           .find(p => p.split("|")[0] === item)
           ?.split("|")[1] ?? ""],
@@ -562,12 +614,57 @@ const PageFormatoEDL = () => {
     return [campos.length, ...campos].join("|");
   };
 
+  const snapshotSimpleByGrupo = (refArray, grupo, clave = "", asignar = false) => {
+    const valores = [];
+
+    forEachRef(refArray, (ref) => {
+      const grupoRef =
+        typeof ref?.getGrupo === "function"
+          ? ref.getGrupo()
+          : ref.grupo;
+
+      if (grupo && grupoRef !== grupo) return;
+      const isControl = typeof ref?.getValue === "function";
+      let value;
+      let posicion;
+
+      if (isControl) {
+        const val = ref.getValue?.();
+        value =
+          typeof val === "string"
+            ? val.trim()
+            : typeof val === "boolean"
+              ? val ? "1" : "0"
+              : val ?? "";
+
+        posicion = Number(ref.getPosi?.() ?? 0);
+
+        if (asignar && typeof ref?.setValor === "function") {
+          ref.setValor(value);
+        }
+
+      } else {
+
+        if (ref.grupo === "1" && Number(ref.nroRef) === 1) {
+          ref.valor = clave
+        }
+
+        value = ref.valor ?? ""
+        posicion = Number(ref.posicion ?? 0);
+      }
+      valores.push({ posicion, value });
+    });
+
+    return valores
+      .sort((a,b)=> a.posicion - b.posicion)
+      .map(v=>v.value)
+      .join("|");
+  };
+
   const handleApiEnvio = async (datosEnv) => {
     if (isLoading) return;
     setIsLoading(true);
     setMalResult("");
-
-    console.log("datosEnv", datosEnv)
 
     const titulo = cardRef.current[1].getTitle();
     const NUEVO = titulo.toUpperCase().startsWith("NUEVO");
@@ -579,14 +676,83 @@ const PageFormatoEDL = () => {
         body: formData,
       });
 
-      if (typeof result === "string"
-        && !result.toLowerCase().startsWith("error")) {
+      if (typeof result === "string" &&
+        !result.toLowerCase().startsWith("error")) {
         cardRef.current[3].setTitle("")
         setsentOK(true)
         setMalResult("SE ACTUALIZO LA INFORMACION...");
+        setSelected(null)
+        cardRef.current[1].setTitle("Editar Formato de Evaluación :")
 
-        console.log("result", result)
+        const listaResult = result.split("|")
+        const clave = listaResult[0]
+        const listaDetalle = listaResult.slice(1)
 
+        console.log("Rpsta del API:", listaResult)
+
+        await esperarRenderCompleto();
+        const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", clave, true)
+
+        const listaTemp = listaData.slice(2).map((item, idx) => {
+          const partes = item.split("|");
+          const pk = listaDetalle[idx];
+          const pkPadre = clave;
+          const codComp = partes[3];
+          const porc = partes[4];
+          const disp = partes[5];
+          const hash = MD5(`${pk}|${pkPadre}|${codComp}|${porc}|${disp}`).toString().toLowerCase();
+          partes[0] = hash;
+          partes[1] = pk;
+          partes[2] = pkPadre;
+          return partes.join("|");
+        })
+
+        console.log("API ASIGNA DATA A LA GRILLA:", listaTemp)
+
+        const lsGrl = listaTemp.map(item => item.split("|").slice(0, 6).join("|"))
+
+        setMapaListas(prev => ({
+          ...prev,
+          41: [...(prev[41] ?? []), listaCabecera],
+          42: [...(prev[42] ?? []), ...lsGrl]
+        }));
+
+        // const nuevaLista = [...(configTable?.listaDatos ?? []), ...lsGrl];
+        // console.log("nuevaListaAntes", nuevaLista)
+
+        const listaActual = configTable?.listaDatos ?? [];
+        let idxLs = 0;
+
+        const nuevaLista = listaActual.map((row, index) => {
+          if (index < 2) return row;
+          const partes = row.split("|");
+
+          if (!partes[1] && lsGrl[idxLs]) {
+            const nuevasPartes = lsGrl[idxLs++].split("|");
+            for (let i = 0; i < 6; i++) {
+              partes[i] = nuevasPartes[i];
+            }
+
+            return partes.join("|");
+          }
+
+          return row;
+        });
+
+
+
+        console.log("DATA REAL ASIGNADA A LA GRILLA:", nuevaLista)
+
+
+
+        setListaData(nuevaLista);
+        setConfigTable({
+          ...configTableBase,
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+          offsetColumnas: 6,
+          listaDatos: nuevaLista
+        });
 
       } else {
         setsentOK(false)
@@ -612,15 +778,35 @@ const PageFormatoEDL = () => {
       dataCampoCtrl,
       dataValorCtrl,
       pasa
-    } = snapshotFormRef_ByGrupo(currentRef, "1", NUEVO, pks);
+    } = snapshotFormRef_ByGrupo(currentRef, "1", NUEVO, pks, true);
+
+    console.log("no hay cambios", pasa)
+    console.log("dataValorCtrl.length", dataValorCtrl.length)
 
     if (!pasa) {
       return;
     } else if (dataCampoCtrl.length === 0) {
-      setAlertState({
-        visible: true,
-        message: "NO existen Datos modificados...",
-      });
+
+      const cambioDetalle = obtenerCambiosDetalle();
+      if (cambioDetalle.length > 0) {
+
+        console.log("CAMBIOS EN EL DETALLE...")
+
+        const listaDetalleEnviar = "~".concat([
+          usuario.split("|")[0],
+          getCamposPorGrupo(currentRef, "4"),
+          cambioDetalle.join("|")
+        ].join("|"));
+
+
+        console.log("Existen cambios en detalle: ", listaDetalleEnviar)
+      } else {
+        setAlertState({
+          visible: true,
+          message: "NO existen Datos modificados...",
+        });
+      }
+
     } else {
       if (NUEVO && listaData?.length === 0) {
         setAlertState({
@@ -631,24 +817,20 @@ const PageFormatoEDL = () => {
         const dataCampo = dataCampoPlano.concat(dataCampoCtrl).join("|")
         const dataValor = dataValorPlano.concat(dataValorCtrl).join("|")
 
-        console.log("NUEVO DATA CAMPO", dataCampo)
-        console.log("NUEVO DATA VALOR", dataValor)
-
         const listaCabecera =
           [usuario.split("|")[0], dataCampo, dataValor].join("|")
 
         if (NUEVO) {
           const listaDetalle = listaData
             .slice(2)
-            .map(item => item.split("|").slice(1, 6).join("|")).join("|")
+            .flatMap(item => item.split("|").slice(1, 6))
+            .join("|");
 
           const listaDetalleEnviar =
             [getCamposPorGrupo(currentRef, "4"), listaDetalle].join("|")
 
           const dataEnviar =
             [listaCabecera, listaDetalleEnviar].join("~")
-
-          console.log("dataEnviar", dataEnviar)
 
           setShowConfirm({
             visible: true,
@@ -657,7 +839,26 @@ const PageFormatoEDL = () => {
           })
         } else {
 
-          console.log("Enviando Detalles")
+          const cambioDetalle = obtenerCambiosDetalle();
+
+          console.log("POPUP:", cambioDetalle)
+
+          if (cambioDetalle.length > 0) {
+            const listaDetalleEnviar =
+              [getCamposPorGrupo(currentRef, "4"), cambioDetalle].join("|")
+            const dataEnviar =
+              [listaCabecera, listaDetalleEnviar].join("~")
+
+
+
+            console.log("Existen cambios en Cabecera y Detalle: ", dataEnviar)
+          } else {
+
+
+
+            console.log("Existen cambios SOLO EN Cabecera: ", listaCabecera.concat("~"))
+          }
+
         }
       }
     }
@@ -675,12 +876,19 @@ const PageFormatoEDL = () => {
 
   const renderCardDetalle = () =>
     informacion
-      .filter((item) => item.metadata[6] === "4")
+      .map((item) => {
+        const [grupo, posicion] = item.metadata[6]?.split(".") ?? [];
+        return { ...item, grupo, posicion };
+      })
+      .filter((item) => item.grupo === "4")
       .map((item, idx) => renderCampo(item, idx));
+
 
   const renderCampo = (item, idx) => {
     const meta = item.metadata;
     const tipo = meta[4];
+    const grupo = item.grupo;
+    const posicion = item.posicion;
     const getBool = (v, def) => (v ? v === "1" : def);
     if (tipo === "0") {
       return null;
@@ -694,7 +902,8 @@ const PageFormatoEDL = () => {
       tipo_dato: meta[3],
       tipo_ctl: tipo,
       nro_ref: meta[5],
-      grupo: meta[6],
+      grupo,
+      posicion,
     };
 
     const baseProps = {
@@ -851,9 +1060,13 @@ const PageFormatoEDL = () => {
             ref={(el) => (cardRef.current[refId] = el)}
           >
             {staticCards[refId] ??
-                informacion
-                  .filter((item) => item.metadata[6] === refId)
-                  .map((item, idx) => renderCampo(item, idx))
+              informacion
+                .map((item) => {
+                    const [grupo, posicion] = item.metadata[6]?.split(".") ?? [];
+                    return {...item, grupo, posicion};
+                  })
+                .filter((item) => item.grupo === refId)
+                .map((item, idx) => renderCampo(item, idx))
             }
           </Card>
         );

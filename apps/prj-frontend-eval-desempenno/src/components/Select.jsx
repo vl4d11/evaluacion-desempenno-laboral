@@ -68,6 +68,7 @@ const Select = forwardRef(function Select(
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
     getGrupo: () => initialValue.current?.grupo ?? "",
     getNroRef: () => initialValue.current?.nro_ref ?? "",
+    getPosi: () => initialValue.current?.posicion ?? "",
     setValue: (v) => {
       if (selectRef.current) selectRef.current.value = v ?? "";
     },

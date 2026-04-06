@@ -72,6 +72,7 @@ const Input = forwardRef(function Input(
     getTipoCtl: () => initialValue.current?.tipo_ctl ?? "",
     getGrupo: () => initialValue.current?.grupo ?? "",
     getNroRef: () => initialValue.current?.nro_ref ?? "",
+    getPosi: () => initialValue.current?.posicion ?? "",
     setValue: (v) => {
       const val = v ?? "";
       if (usarHook) {
