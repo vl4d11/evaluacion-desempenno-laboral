@@ -14,7 +14,7 @@ import Radio from "../components/Radio"
 import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AlertDialog } from "../components/AlertDialog";
-import MD5 from "crypto-js/md5";
+import CryptoJS from "crypto-js";
 
 const PageFormatoEDL = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
@@ -40,6 +40,12 @@ const PageFormatoEDL = () => {
   const [listaData, setListaData] = useState([]);
   const [mapaListas, setMapaListas] = useState({});
   const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
+  const STEP = Object.freeze({
+    CAB_DET: 0,
+    SOLO_CAB: 1,
+    SOLO_DET: 2,
+  });
+  const [step, setStep] = useState(STEP.CAB_DET);
   const [showModalDetalle, setShowModalDetalle] = useState(
     { open: false, title: "" }
   );
@@ -128,6 +134,16 @@ const PageFormatoEDL = () => {
     ? widthMap[cardDetalleConfig.ancho]
     : "";
 
+  const safe = (v) =>
+    (v ?? '')
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const buildHashString = (...vals) => vals.join("|");
+
   const esperarRenderCompleto = () =>
     new Promise((resolve) =>
       requestAnimationFrame(() =>
@@ -137,24 +153,27 @@ const PageFormatoEDL = () => {
 
   const obtenerCambiosDetalle = () => {
     if (!listaData || listaData.length === 0) return [];
-    return listaData.slice(2).reduce((acc, item) => {
-      const partes = item.split("|");
-      const hash = partes[0];
-      const pk = partes[1];
-      const pkPadre = partes[2];
-      const codComp = partes[3];
-      const porc = partes[4];
-      const disp = partes[5];
-      const hashCompara = MD5(`${pk}|${pkPadre}|${codComp}|${porc}|${disp}`)
-        .toString()
-        .toLowerCase();
+    const resultado = [];
+
+    for (let i = 2; i < listaData.length; i++){
+      const item = listaData[i]
+      const [hash, pk, pkPadre, codComp, porc, disp] = item.split("|");
+      const values = [
+        safe(pk),
+        safe(pkPadre),
+        safe(codComp),
+        safe(porc),
+        safe(disp),
+      ];
+
+      const hashCompara = CryptoJS.MD5(buildHashString(...values))
+        .toString(CryptoJS.enc.Hex);
 
       if (hash !== hashCompara) {
-        console.log("ITEM HASH:", item)
-        acc.push([pk, pkPadre, codComp, porc, disp].join("|"));
+        resultado.push(values.join("|"));
       }
-      return acc;
-    }, []);
+    }
+    return resultado;
   }
 
   const openModal = (title) => {
@@ -270,8 +289,6 @@ const PageFormatoEDL = () => {
     let pasa = true;
     let pkIndex = 0;
 
-    // console.log("es nuevo", esNuevo)
-
     forEachRef(refArray, (ref) => {
       const grupoRef =
         typeof ref?.getGrupo === "function"
@@ -313,7 +330,6 @@ const PageFormatoEDL = () => {
         dataCampoCtrl.push(campo);
         dataValorCtrl.push(value);
       } else {
-        // console.log("isEqual", isEqual, "nroRef", nroRef)
         if (!isEqual) {
           dataCampoCtrl.push(campo);
           dataValorCtrl.push(value);
@@ -493,9 +509,9 @@ const PageFormatoEDL = () => {
     openModal("Nuevo");
   }
 
-  const buildFila = (data, lista14) => {
+  const buildFila = (data, lista14, esNuevo = true, hashOriginal = "") => {
     const transforms = {
-      0: () => [""],
+      0: () => [esNuevo ? "" : hashOriginal],
       1: (_, __, datos) =>
         datos.map((item, i) =>
           i === 3 && item !== ""
@@ -541,8 +557,10 @@ const PageFormatoEDL = () => {
 
     closeModal();
     const dataValor = [...dataValorPlano, ...dataValorCtrl]
-    const filaNuevo = buildFila(dataValor, mapaListas?.[14]);
-    const filaEdit = buildFila(dataValorCompleta, mapaListas?.[14]);
+    const filaNuevo = buildFila(dataValor, mapaListas?.[14], true);
+
+    const hashOriginal =  filaSeleccionadaConIndex?.fila[0]
+    const filaEdit = buildFila(dataValorCompleta, mapaListas?.[14], false, hashOriginal);
 
     const updateState = (lista, extraConfig = {}) => {
       setListaData(lista);
@@ -666,6 +684,8 @@ const PageFormatoEDL = () => {
     setIsLoading(true);
     setMalResult("");
 
+    console.log("Datos Enviar al backend:", datosEnv)
+
     const titulo = cardRef.current[1].getTitle();
     const NUEVO = titulo.toUpperCase().startsWith("NUEVO");
     const formData = new FormData();
@@ -684,76 +704,112 @@ const PageFormatoEDL = () => {
         setSelected(null)
         cardRef.current[1].setTitle("Editar Formato de Evaluación :")
 
-        const listaResult = result.split("|")
-        const clave = listaResult[0]
-        const listaDetalle = listaResult.slice(1)
+        console.log("Rpsta del API:", result)
 
-        console.log("Rpsta del API:", listaResult)
 
-        await esperarRenderCompleto();
-        const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", clave, true)
+        if (NUEVO) {
+          const listaResult = result.split("|")
+          const clave = listaResult[0]
+          const listaDetalle = listaResult.slice(1)
 
-        const listaTemp = listaData.slice(2).map((item, idx) => {
-          const partes = item.split("|");
-          const pk = listaDetalle[idx];
-          const pkPadre = clave;
-          const codComp = partes[3];
-          const porc = partes[4];
-          const disp = partes[5];
-          const hash = MD5(`${pk}|${pkPadre}|${codComp}|${porc}|${disp}`).toString().toLowerCase();
-          partes[0] = hash;
-          partes[1] = pk;
-          partes[2] = pkPadre;
-          return partes.join("|");
-        })
+          await esperarRenderCompleto();
+          const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", clave, true)
 
-        console.log("API ASIGNA DATA A LA GRILLA:", listaTemp)
+          const lsGrl = listaData.slice(2).map((item, idx) => {
+            const partes = item.split("|");
+            const pk = safe(listaDetalle[idx] ?? "");
+            const pkPadre = safe(clave);
+            const codComp = safe(partes[3]);
+            const porc = safe(partes[4]);
+            const disp = safe(partes[5]);
+            const values = [pk, pkPadre, codComp, porc, disp];
+            const hash = CryptoJS.MD5(buildHashString(...values)).toString(CryptoJS.enc.Hex);
+            partes[0] = hash;
+            partes[1] = pk;
+            partes[2] = pkPadre;
+            return partes.slice(0, 6).join("|");
+          })
 
-        const lsGrl = listaTemp.map(item => item.split("|").slice(0, 6).join("|"))
+          setMapaListas(prev => ({
+            ...prev,
+            41: [...(prev[41] ?? []), listaCabecera],
+            42: [...(prev[42] ?? []), ...lsGrl]
+          }));
 
-        setMapaListas(prev => ({
-          ...prev,
-          41: [...(prev[41] ?? []), listaCabecera],
-          42: [...(prev[42] ?? []), ...lsGrl]
-        }));
+          const listaActual = configTable?.listaDatos ?? [];
+          let idxLs = 0;
 
-        // const nuevaLista = [...(configTable?.listaDatos ?? []), ...lsGrl];
-        // console.log("nuevaListaAntes", nuevaLista)
+          const nuevaLista = listaActual.map((row, index) => {
+            if (index < 2) return row;
+            const partes = row.split("|");
 
-        const listaActual = configTable?.listaDatos ?? [];
-        let idxLs = 0;
-
-        const nuevaLista = listaActual.map((row, index) => {
-          if (index < 2) return row;
-          const partes = row.split("|");
-
-          if (!partes[1] && lsGrl[idxLs]) {
-            const nuevasPartes = lsGrl[idxLs++].split("|");
-            for (let i = 0; i < 6; i++) {
-              partes[i] = nuevasPartes[i];
+            if (!partes[1] && lsGrl[idxLs]) {
+              const nuevasPartes = lsGrl[idxLs++].split("|");
+              for (let i = 0; i < 6; i++) {
+                partes[i] = nuevasPartes[i];
+              }
+              return partes.join("|");
             }
+            return row;
+          });
 
-            return partes.join("|");
+          setListaData(nuevaLista);
+          setConfigTable({
+            ...configTableBase,
+            title: "Detalle Formato de Evaluación Desempeño :",
+            isPaginar: false,
+            offsetColumnas: 6,
+            listaDatos: nuevaLista
+          });
+
+        } else {
+          console.log("DEVUELVE EN EDICION....")
+          console.log("step", step)
+
+          if (step === STEP.SOLO_CAB) {
+            await esperarRenderCompleto();
+            const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", result, true)
+
+            setMapaListas(prev => ({
+              ...prev,
+              41: (prev[41] ?? []).map(item => {
+                const key = item.split("|")[0];
+                return key === String(result) ? listaCabecera : item;
+              }),
+            }));
           }
+          if (step === STEP.SOLO_DET) {
+            const listaResult = result.split("|")
 
-          return row;
-        });
+            const lsGrl = listaData
+                .slice(2)
+                .map(item => item.split("|").slice(0, 6).join("|"));
 
+            const mapLsGrl = new Map(
+              lsGrl.map(r => {
+                const p = r.split("|");
+                return [safe(p[1]), r];
+              })
+            );
+            const setPkPadre = new Set(
+              lsGrl.map(r => safe(r.split("|")[2]))
+            );
+            const setPkHijo = new Set(listaResult.map(r => safe(r)));
 
-
-        console.log("DATA REAL ASIGNADA A LA GRILLA:", nuevaLista)
-
-
-
-        setListaData(nuevaLista);
-        setConfigTable({
-          ...configTableBase,
-          title: "Detalle Formato de Evaluación Desempeño :",
-          isPaginar: false,
-          offsetColumnas: 6,
-          listaDatos: nuevaLista
-        });
-
+            setMapaListas(prev => ({
+              ...prev,
+              42: (prev[42] ?? []).map(item => {
+                const partes = item.split("|");
+                const pk = safe(partes[1]);
+                const pkPadre = safe(partes[2]);
+                if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
+                  return mapLsGrl.get(pk) ?? item;
+                }
+                return item;
+              }),
+            }));
+          }
+        }
       } else {
         setsentOK(false)
         setMalResult("No se pudo Guardar la informacion...");
@@ -780,9 +836,6 @@ const PageFormatoEDL = () => {
       pasa
     } = snapshotFormRef_ByGrupo(currentRef, "1", NUEVO, pks, true);
 
-    console.log("no hay cambios", pasa)
-    console.log("dataValorCtrl.length", dataValorCtrl.length)
-
     if (!pasa) {
       return;
     } else if (dataCampoCtrl.length === 0) {
@@ -790,16 +843,21 @@ const PageFormatoEDL = () => {
       const cambioDetalle = obtenerCambiosDetalle();
       if (cambioDetalle.length > 0) {
 
-        console.log("CAMBIOS EN EL DETALLE...")
-
         const listaDetalleEnviar = "~".concat([
           usuario.split("|")[0],
           getCamposPorGrupo(currentRef, "4"),
           cambioDetalle.join("|")
         ].join("|"));
 
+        setShowConfirm({
+          visible: true,
+          message: "¿Cambios en detalle, Deseas Guardar ?",
+          onConfirm: () => {
+            handleApiEnvio(listaDetalleEnviar);
+            setStep(STEP.SOLO_DET);
+          }
+        })
 
-        console.log("Existen cambios en detalle: ", listaDetalleEnviar)
       } else {
         setAlertState({
           visible: true,
@@ -835,30 +893,41 @@ const PageFormatoEDL = () => {
           setShowConfirm({
             visible: true,
             message: "¿Deseas Guardar la Informacion ?",
-            onConfirm: () => handleApiEnvio(dataEnviar)
+            onConfirm: () => {
+              handleApiEnvio(dataEnviar);
+              setStep(STEP.CAB_DET);
+            }
           })
+
         } else {
 
           const cambioDetalle = obtenerCambiosDetalle();
-
-          console.log("POPUP:", cambioDetalle)
-
           if (cambioDetalle.length > 0) {
             const listaDetalleEnviar =
               [getCamposPorGrupo(currentRef, "4"), cambioDetalle].join("|")
             const dataEnviar =
               [listaCabecera, listaDetalleEnviar].join("~")
 
+            setShowConfirm({
+              visible: true,
+              message: "¿Cambios en Cabecera y Detalle, Deseas Guardar ?",
+              onConfirm: () =>{
+                handleApiEnvio(dataEnviar);
+                setStep(STEP.CAB_DET);
+              }
+            })
 
-
-            console.log("Existen cambios en Cabecera y Detalle: ", dataEnviar)
           } else {
-
-
-
-            console.log("Existen cambios SOLO EN Cabecera: ", listaCabecera.concat("~"))
+            const dataEnviar = listaCabecera.concat("~");
+            setShowConfirm({
+              visible: true,
+              message: "¿Cambios solo en Cabecera, Deseas Guardar ?",
+              onConfirm: () => {
+                handleApiEnvio(dataEnviar);
+                setStep(STEP.SOLO_CAB);
+              }
+            });
           }
-
         }
       }
     }
