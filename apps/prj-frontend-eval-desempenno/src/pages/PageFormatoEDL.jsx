@@ -38,6 +38,7 @@ const PageFormatoEDL = () => {
 
   const [configTable, setConfigTable] = useState(null);
   const [listaData, setListaData] = useState([]);
+
   const [mapaListas, setMapaListas] = useState({});
   const [isGrabarDisabled, setIsGrabarDisabled] = useState(true);
   const STEP = Object.freeze({
@@ -249,6 +250,11 @@ const PageFormatoEDL = () => {
       }
     });
   }, [showModalDetalle, detalleSeleccionado, metaListaFormatDetail]);
+
+  // const mapa = mapaListas?.[42]
+  // useEffect(() => {
+  //   console.log("listaData REAL:", mapa)
+  // },[mapa])
 
   const forEachRef = (refArray, callback) => {
     Object.values(refArray.current).forEach((ref) => {
@@ -560,57 +566,69 @@ const PageFormatoEDL = () => {
     const filaNuevo = buildFila(dataValor, mapaListas?.[14], true);
 
     const hashOriginal =  filaSeleccionadaConIndex?.fila[0]
-    const filaEdit = buildFila(dataValorCompleta, mapaListas?.[14], false, hashOriginal);
+    const filaEdit = buildFila(
+      dataValorCompleta,
+      mapaListas?.[14],
+      false,
+      hashOriginal
+    );
 
-    const updateState = (lista, extraConfig = {}) => {
-      setListaData(lista);
-      setConfigTable({
-        ...configTableBase,
-        offsetColumnas: 6,
-        ...extraConfig,
-        listaDatos: lista,
+    const updateState = (extraConfig = {}, buildLista) => {
+      setListaData(prev => {
+        const nuevaLista = buildLista(prev);
+        setConfigTable({
+          ...configTableBase,
+          offsetColumnas: 6,
+          ...extraConfig,
+          listaDatos: nuevaLista,
+        });
+        return nuevaLista;
       });
     };
 
     if (NUEVO_DETALLE) {
-      let nuevaLista
-      if (configTable?.listaDatos.length === 0) {
-        const labelGrillaDeta = mapaListas?.[42].slice(1, 3);
-        nuevaLista = NUEVO_GLOBAL
-          ? [...labelGrillaDeta, filaNuevo]
-          : [filaNuevo];
-      } else {
-        nuevaLista = [
-          ...(configTable?.listaDatos ?? []),
-          filaNuevo
-        ];
-      }
-
       if (NUEVO_GLOBAL) cardRef.current[2]?.setHidden(true);
+      updateState(
+        {
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+        },
+        (prevLista) => {
+          let nuevaLista;
 
-      updateState(nuevaLista, {
-        title: "Detalle Formato de Evaluación Desempeño :",
-        isPaginar: false,
+          if ((prevLista ?? []).length <= 2) {
+            const labelGrillaDeta = (prevLista ?? []).slice(0, 2);
+            nuevaLista = NUEVO_GLOBAL
+              ? [...labelGrillaDeta, filaNuevo]
+              : [filaNuevo];
+          } else {
+            nuevaLista = [
+              ...(prevLista ?? []),
+              filaNuevo
+            ];
+          }
+        return nuevaLista;
       });
-
     } else {
       const fila = filaEdit;
       const idFila = fila.split("|")[1];
 
-      const listaEditada = (listaData ?? []).map((row, idx) => {
-        const rowId = row.split("|")[1];
-        if (idFila) {
-          return rowId === String(idFila) ? fila : row;
-        } else if (filaSeleccionadaConIndex?.index !== undefined) {
-          return idx === filaSeleccionadaConIndex.index ? fila : row;
-        }
-        return row;
-      });
-
-      updateState(listaEditada, {
-        title: "Detalle Formato de Evaluación Desempeño :",
-        isPaginar: false,
-      });
+      updateState(
+        {
+          title: "Detalle Formato de Evaluación Desempeño :",
+          isPaginar: false,
+        },
+        (prevLista) =>
+          (prevLista ?? []).map((row, idx) => {
+            const rowId = row.split("|")[1];
+            if (idFila) {
+              return rowId === String(idFila) ? fila : row;
+            } else if (filaSeleccionadaConIndex?.index !== undefined) {
+              return idx === filaSeleccionadaConIndex.index ? fila : row;
+            }
+            return row;
+        })
+      );
     }
   }
 
@@ -705,6 +723,8 @@ const PageFormatoEDL = () => {
         cardRef.current[1].setTitle("Editar Formato de Evaluación :")
 
         console.log("Rpsta del API:", result)
+        console.log("NUEVO", NUEVO)
+        console.log("step", step)
 
 
         if (NUEVO) {
@@ -749,7 +769,7 @@ const PageFormatoEDL = () => {
                 partes[i] = nuevasPartes[i];
               }
               return partes.join("|");
-            }
+            }nuevaLista
             return row;
           });
 
@@ -763,10 +783,8 @@ const PageFormatoEDL = () => {
           });
 
         } else {
-          console.log("DEVUELVE EN EDICION....")
-          console.log("step", step)
-
           if (step === STEP.SOLO_CAB) {
+            console.log("STEP.SOLO_CAB", STEP.SOLO_CAB)
             await esperarRenderCompleto();
             const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", result, true)
 
@@ -781,9 +799,46 @@ const PageFormatoEDL = () => {
           if (step === STEP.SOLO_DET) {
             const listaResult = result.split("|")
 
-            const lsGrl = listaData
-                .slice(2)
-                .map(item => item.split("|").slice(0, 6).join("|"));
+            const existingPk = new Set(
+              listaData.slice(2).map(item => safe(item.split("|")[1]))
+            );
+            const usados = new Set();
+            const nuevosPkQueue = listaResult
+              .map(r => safe(r))
+              .filter(r => r !== "");
+
+            const listaTemp = listaData.slice(0, 2)
+            const listaTempFiltrado = listaData.slice(2).map((item) => {
+              const partes = item.split("|");
+              const pkActual = safe(partes[1]);
+              const nuevoPk = safe(nuevosPkQueue[0] ?? "");
+              if (pkActual !== "") {
+                return item;
+              }
+              if (!nuevoPk) {
+                return item;
+              }
+              if (existingPk.has(nuevoPk) || usados.has(nuevoPk)) {
+                return item;
+              }
+              const pkPadre = safe(partes[2]);
+              const codComp = safe(partes[3]);
+              const porc = safe(partes[4]);
+              const disp = safe(partes[5]);
+              const values = [nuevoPk, pkPadre, codComp, porc, disp];
+              const hash = CryptoJS.MD5(buildHashString(...values)).toString(CryptoJS.enc.Hex);
+              partes[0] = hash;
+              partes[1] = nuevoPk;
+              usados.add(nuevoPk);
+              nuevosPkQueue.shift();
+              return partes.join("|");
+            })
+            listaTemp.push(...listaTempFiltrado)
+            setListaData(listaTemp)
+
+            const lsGrl = listaTempFiltrado.map(item =>
+              item.split("|").slice(0, 6).join("|")
+            );
 
             const mapLsGrl = new Map(
               lsGrl.map(r => {
@@ -795,19 +850,34 @@ const PageFormatoEDL = () => {
               lsGrl.map(r => safe(r.split("|")[2]))
             );
             const setPkHijo = new Set(listaResult.map(r => safe(r)));
+            const nuevosItems = [];
 
-            setMapaListas(prev => ({
-              ...prev,
-              42: (prev[42] ?? []).map(item => {
-                const partes = item.split("|");
-                const pk = safe(partes[1]);
-                const pkPadre = safe(partes[2]);
-                if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
-                  return mapLsGrl.get(pk) ?? item;
-                }
-                return item;
-              }),
-            }));
+            // setMapaListas(prev => {
+            //   const lista42 = prev[42] ?? [];
+            //   const actualizados = lista42.map(item => {
+            //     const partes = item.split("|");
+            //     const pk = safe(partes[1]);
+            //     const pkPadre = safe(partes[2]);
+            //     if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
+            //       const nuevo = mapLsGrl.get(pk);
+            //       if (nuevo) return nuevo;
+            //     }
+            //     return item;
+            //   });
+            //   for (const [pk, value] of mapLsGrl.entries()) {
+            //     const existe = lista42.some(item => {
+            //       const p = item.split("|");
+            //       return safe(p[1]) === pk;
+            //     });
+            //     if (!existe) {
+            //       nuevosItems.push(value);
+            //     }
+            //   }
+            //   return {
+            //     ...prev,
+            //     42: [...actualizados, ...nuevosItems],
+            //   };
+            // });
           }
         }
       } else {
