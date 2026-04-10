@@ -21,6 +21,10 @@ const PageEvaluacionDesempenno = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showObsModal, setShowObsModal] = useState(false);
   const [obsData, setObsData] = useState(null);
+  const [obsText, setObsText] = useState("");
+  const [respuestas, setRespuestas] = useState({});
+  const [resetKey, setResetKey] = useState(0);
+  const [erroresObs, setErroresObs] = useState({});
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
@@ -66,22 +70,97 @@ const PageEvaluacionDesempenno = () => {
 
   const isMobile = useIsMobile(768);
 
+  const handleChangeRespuesta = ({ pk, value, observacion, clearError }) => {
+    setRespuestas(prev => ({
+      ...prev,
+      [pk]: {
+        ...prev[pk],
+        ...(value !== undefined && { value }),
+        ...(observacion !== undefined && { observacion })
+      }
+    }));
+    if (clearError) {
+      const opcionesRaw = mapaListas?.[35] ?? [];
+      if (opcionesRaw.length) {
+        const opciones = opcionesRaw.map(item => {
+          const [, v] = item.split("|");
+          return v?.trim();
+        });
+        const primera = opciones[0];
+        const ultima = opciones[opciones.length - 1];
+        const esExtremo = value === primera || value === ultima;
+
+        setErroresObs(prev => ({
+          ...prev,
+          [pk]: esExtremo
+        }));
+      }
+    }
+  };
+
+  const validarObservaciones = (resultadoCompleto, mapaListas) => {
+    const errores = {};
+    const opcionesRaw = mapaListas?.[35] ?? [];
+    if (!opcionesRaw.length) return errores;
+
+    const opciones = opcionesRaw.map(item => {
+      const [, value] = item.split("|");
+      return value?.trim();
+    });
+
+    const primera = opciones[0];
+    const ultima = opciones[opciones.length - 1];
+
+    resultadoCompleto.forEach(item => {
+      const { pk, value, observacion } = item;
+      const esExtremo = value === primera || value === ultima;
+      const sinObs = !observacion || observacion.trim() === "";
+
+      if (esExtremo && sinObs) {
+        errores[pk] = true;
+      }
+    });
+    return errores;
+  };
+
   const handleFilaSeleccionada = (fila) => {
     console.log("fila:", fila)
   }
 
-  const handleObservacion = (data) => {
-      setObsData(data);
-      setShowObsModal(true);
-
-      console.log("data", data)
+  const handleObservacion = ({pk, onSave}) => {
+    setObsData({ pk, onSave });
+    setObsText(respuestas[pk]?.observacion ?? "");
+    setShowObsModal(true);
   }
 
-  const handleGrabar = () => {
-    setAlertState({
-      visible: true,
-      message: "Datos modificados...",
+  const buildResultadoCompleto = (preguntas, respuestas) => {
+    return preguntas.map((item) => {
+      const [pk] = item.split("|")
+      const r = respuestas[pk] ?? {}
+      return {
+        pk,
+        value: r.value ?? "",
+        observacion: r.observacion ?? ""
+      }
     });
+}
+
+  const handleGrabar = () => {
+    const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
+    const errores = validarObservaciones(resultadoCompleto, mapaListas)
+    setErroresObs(errores);
+
+    console.log("errores", errores)
+
+    if (Object.keys(errores).length > 0) {
+      setAlertState({
+        visible: true,
+        message: "Debe ingresar observaciones obligatorias..."
+      });
+      return;
+    }
+
+    console.log("RESPUESTAS:", resultadoCompleto);
   }
 
   const handleLogout = () => {
@@ -89,6 +168,15 @@ const PageEvaluacionDesempenno = () => {
     logout();
     navigateTo.replace("/");
   };
+
+  const limpiarControles = ()=>{
+    setRespuestas({})
+    setResetKey(prev => prev + 1)
+  }
+
+  const handleLimpiar = () => {
+    limpiarControles()
+  }
 
   if (loading) {
     return <div>Cargando datos...</div>;
@@ -133,12 +221,14 @@ const PageEvaluacionDesempenno = () => {
             const texto = partes[1] ?? "";
             return (
               <EncuestaLikert
-                key={pks}
+                key={`${pks}-${resetKey}`}
                 nro={idx + 1}
                 label={texto}
                 pks={pks}
                 lista={mapaListas?.[35]}
                 onObservacion={handleObservacion}
+                onChangeRespuesta={handleChangeRespuesta}
+                errorObs={erroresObs[pks]}
               />
             )
           })
@@ -171,7 +261,7 @@ const PageEvaluacionDesempenno = () => {
           {isLoading ? "Guardando..." : "Grabar"}
         </button>
         <button className="px-8 py-2 rounded-md shadow-sm bg-gray-200 text-gray-800 hover:bg-gray-300 cursor-pointer"
-          onClick={()=>console.log("limpiar..")}
+          onClick={handleLimpiar}
         >
           Limpiar
         </button>
@@ -197,19 +287,27 @@ const PageEvaluacionDesempenno = () => {
               className="w-full border rounded-md p-2 mb-4 resize-none"
               rows={6}
               placeholder="Ingrese observación..."
-              defaultValue=""
+              value={obsText}
+              onChange={(e) => setObsText(e.target.value)}
             />
 
             <div className="flex justify-end gap-2">
               <button
                 className="px-4 py-2 text-white rounded-md bg-blue-500 hover:bg-blue-300"
-                onClick={() => setShowObsModal(false)}
+                onClick={() => {
+                  obsData?.onSave?.(obsText);
+                  setShowObsModal(false);
+                  setObsText("")
+                }}
               >
                 Aceptar
               </button>
               <button
                 className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
-                onClick={() => setShowObsModal(false)}
+                onClick={() => {
+                  setShowObsModal(false);
+                  setObsText("");
+                }}
               >
                 Cerrar
               </button>

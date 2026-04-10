@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 
-const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
+const EncuestaLikert = ({
+  nro,
+  label,
+  pks,
+  lista = [],
+  onObservacion,
+  onChangeRespuesta,
+  errorObs
+}) => {
 
   const [state, setState] = useState({
     value: "",
@@ -19,16 +27,21 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
   }, [lista]);
 
   const handleObservacion = () => {
+    if (!state.value) return;
     if (onObservacion) {
       onObservacion({
-        nro,
-        pks,
-        label,
-        onSave: (texto) => { //callback desde el padre
+        pk: pks,
+        onSave: (texto) => {
+
           setState(prev => ({
             ...prev,
             observacion: texto
           }));
+
+          onChangeRespuesta?.({
+            pk: pks,
+            observacion: texto
+          });
         }
       });
     }
@@ -36,13 +49,17 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
 
   const handleChange = (e) => {
     const val = e.target.value;
+
     setState(prev => ({
       ...prev,
       value: val
     }));
 
-    // opcional: enviar al padre
-    // onChange?.({ ...state, value: val });
+    onChangeRespuesta?.({
+      pk: pks,
+      value: val,
+      clearError: true
+    });
   };
 
   return (
@@ -93,7 +110,6 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
             focus:ring-2
             focus:ring-indigo-500
           "
-          defaultValue=""
         >
           <option value="" disabled>
             SELECCIONE...
@@ -107,20 +123,22 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
 
         <button
           onClick={handleObservacion}
-          className="
+          className={`
             mt-1
             w-full
-            bg-transparent
             border-2
-            border-indigo-400
-            text-indigo-600
             text-sm
             py-2
             rounded-lg
-            hover:bg-indigo-50
-            active:bg-indigo-100
             transition
-          "
+            ${
+              errorObs && !state.observacion?.trim()
+                ? "bg-transparent border-red-500 text-red-600"
+                : state.observacion?.trim()
+                ? "bg-sky-100 border-sky-400 text-sky-700"
+                : "bg-transparent border-indigo-400 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100"
+            }
+          `}
         >
           Observación
         </button>
