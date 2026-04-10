@@ -1,6 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
+
+  const [state, setState] = useState({
+    value: "",
+    pk: pks,
+    observacion: ""
+  });
 
   const opciones = useMemo(() => {
     return lista.map(item => {
@@ -13,7 +19,30 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
   }, [lista]);
 
   const handleObservacion = () => {
-    if (onObservacion) onObservacion({ nro, pks, label });
+    if (onObservacion) {
+      onObservacion({
+        nro,
+        pks,
+        label,
+        onSave: (texto) => { //callback desde el padre
+          setState(prev => ({
+            ...prev,
+            observacion: texto
+          }));
+        }
+      });
+    }
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setState(prev => ({
+      ...prev,
+      value: val
+    }));
+
+    // opcional: enviar al padre
+    // onChange?.({ ...state, value: val });
   };
 
   return (
@@ -50,6 +79,8 @@ const EncuestaLikert = ({ nro, label, pks, lista = [], onObservacion }) => {
         </label>
 
         <select
+          value={state.value}
+          onChange={handleChange}
           className="
             w-full
             border
