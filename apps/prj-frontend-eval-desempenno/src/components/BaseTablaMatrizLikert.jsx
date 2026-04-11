@@ -22,6 +22,7 @@ const Fila = memo(
     radioState,
     onRadioChange,
     rowKey,
+    tieneError,
   }) =>
   (
     <div
@@ -104,17 +105,14 @@ const Fila = memo(
         style={{ flex: 1 }}
       >
         <button
-          className="
-            w-6 h-6
-            flex items-center justify-center
-            text-xs font-bold
-            text-blue-600
-            border border-blue-500
-            rounded
-            hover:bg-blue-100
-            active:bg-blue-200
+          className={`
+            w-6 h-6 flex items-center justify-center text-xs font-bold rounded
             transition-colors duration-150
-          "
+            ${tieneError
+              ? "bg-red-100 text-red-700 border border-red-600 hover:bg-red-200"
+              : "text-blue-600 border border-blue-500 hover:bg-blue-100 active:bg-blue-200"
+            }
+          `}
           onClick={(e) => {
             e.stopPropagation();
             onObsClick?.(virtualRow.index);
@@ -134,6 +132,9 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   rowsPerPage = 20,
   showRowNumber = false,
   opcionesRadio = [],
+  onChangeRespuesta,
+  erroresObs = {},
+  respuestas = {}
 }, ref) {
   const {
     title = "",
@@ -233,6 +234,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
 
   const handleKeyDown = useCallback(
     (e) => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
       if (
         e.key === "Enter" &&
         document.activeElement === searchInputRef.current
@@ -447,9 +449,23 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                       score
                     }
                   }));
+                  onChangeRespuesta?.({
+                    pk: rowIdx,
+                    value,
+                    clearError: true
+                  });
                 }}
                 onObsClick={(index) => {
-                  onObsClick?.(index);
+                  const pk = datosTabla[index]?.completa?.[0];
+                  onObsClick?.({
+                    pk,
+                    onSave: (texto) => {
+                      onChangeRespuesta?.({
+                        pk,
+                        observacion: texto
+                      });
+                    }
+                  });
                 }}
                 onClick={() => {
                   setSelectedIndex(virtualRow.index);
@@ -465,6 +481,10 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                   }
                 }}
                 listaLength={listaDatos.length}
+                tieneError={
+                  erroresObs[filaItem.completa[0]] &&
+                  !respuestas[filaItem.completa[0]]?.observacion?.trim()
+                }
               />
             );
           })}

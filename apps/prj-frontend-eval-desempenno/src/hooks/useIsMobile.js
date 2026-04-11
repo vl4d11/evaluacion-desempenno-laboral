@@ -1,18 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const useIsMobile = (breakpoint = 768) => {
+const useIsMobile = (breakpoint = 768, onModeChange) => {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false
   );
 
+  const lastMode = useRef(isMobile);
+
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < breakpoint);
+      const next = window.innerWidth < breakpoint
+      if (next !== lastMode.current) {
+        lastMode.current = next
+        setIsMobile(next);
+        onModeChange?.();
+      }
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [breakpoint]);
+  }, [breakpoint, onModeChange]);
 
   return isMobile;
 };

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useFetch } from "../hooks/useFetch";
 import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
 import Card from "../components/Card"
@@ -68,7 +68,12 @@ const PageEvaluacionDesempenno = () => {
     return mapaListas?.[41]?.slice(2) ?? [];
   }, [mapaListas]);
 
-  const isMobile = useIsMobile(768);
+  const limpiarControles = useCallback(() => {
+    setRespuestas({})
+    setResetKey(prev => prev + 1)
+  }, []);
+
+  const isMobile = useIsMobile(768, limpiarControles);
 
   const handleChangeRespuesta = ({ pk, value, observacion, clearError }) => {
     setRespuestas(prev => ({
@@ -143,15 +148,12 @@ const PageEvaluacionDesempenno = () => {
         observacion: r.observacion ?? ""
       }
     });
-}
+  }
 
   const handleGrabar = () => {
     const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
     const errores = validarObservaciones(resultadoCompleto, mapaListas)
     setErroresObs(errores);
-
-    console.log("errores", errores)
-
     if (Object.keys(errores).length > 0) {
       setAlertState({
         visible: true,
@@ -159,7 +161,6 @@ const PageEvaluacionDesempenno = () => {
       });
       return;
     }
-
     console.log("RESPUESTAS:", resultadoCompleto);
   }
 
@@ -168,11 +169,6 @@ const PageEvaluacionDesempenno = () => {
     logout();
     navigateTo.replace("/");
   };
-
-  const limpiarControles = ()=>{
-    setRespuestas({})
-    setResetKey(prev => prev + 1)
-  }
 
   const handleLimpiar = () => {
     limpiarControles()
@@ -244,6 +240,9 @@ const PageEvaluacionDesempenno = () => {
             opcionesRadio={mapaListas?.[35]}
             onSelect={handleFilaSeleccionada}
             onObsClick={handleObservacion}
+            onChangeRespuesta={handleChangeRespuesta}
+            erroresObs={erroresObs}
+            respuestas={respuestas}
           />
         ): null
       )}
@@ -289,6 +288,12 @@ const PageEvaluacionDesempenno = () => {
               placeholder="Ingrese observación..."
               value={obsText}
               onChange={(e) => setObsText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }
+              }}
             />
 
             <div className="flex justify-end gap-2">
