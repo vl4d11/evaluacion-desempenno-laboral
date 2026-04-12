@@ -42,10 +42,21 @@ function LoginBase() {
         const result = await login(usuario, password);
         if (result.ok) {
           const raw = result?.data[0] ?? "";
-          loginAuth({ usuario: raw });
           const ctaMenus = raw.split("|")?.[1];
-          sessionStorage.setItem("ctaMenus", ctaMenus);
+          const posID = raw.split("|")?.[3];
+          const esEvDesLab = raw.split("|")?.[4];
 
+          if (ctaMenus === "1" && esEvDesLab === "0") {
+            newErrors.password = "No tiene Evaluación Asignada..."
+            setErrors(newErrors);
+          } else {
+
+            loginAuth({ usuario: raw });
+            sessionStorage.setItem("ctaMenus", ctaMenus);
+            sessionStorage.setItem("posID", posID);
+            sessionStorage.setItem("esEvDesLab", esEvDesLab);
+
+          }
         } else {
           console.log("Error:", result.error);
         }

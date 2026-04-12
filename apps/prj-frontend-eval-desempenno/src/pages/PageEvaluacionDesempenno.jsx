@@ -4,6 +4,7 @@ import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
 import Card from "../components/Card"
 import Select from "../components/Select";
 import { AlertDialog } from "../components/AlertDialog";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import EncuestaLikert from "../components/EncuestaLikert";
 import useIsMobile from "../hooks/useIsMobile";
 import useAuth from "../hooks/useAuth";
@@ -28,6 +29,11 @@ const PageEvaluacionDesempenno = () => {
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
+  });
+  const [showConfirm, setShowConfirm] = useState({
+    visible: false,
+    message: "",
+    onConfirm: null,
   });
 
   // const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
@@ -326,6 +332,18 @@ const PageEvaluacionDesempenno = () => {
         <AlertDialog
           message={alertState.message}
           onClose={() => setAlertState({ visible: false, message: "" })}
+        />
+      )}
+      {showConfirm.visible && (
+        <ConfirmDialog
+          message={showConfirm.message}
+          onConfirm={() => {
+            showConfirm.onConfirm?.();
+            setShowConfirm({ visible: false, message: "", onConfirm: null });
+          }}
+          onCancel={() =>
+            setShowConfirm({ visible: false, message: "", onConfirm: null })
+          }
         />
       )}
 

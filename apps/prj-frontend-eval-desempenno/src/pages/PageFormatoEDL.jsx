@@ -1194,7 +1194,7 @@ const PageFormatoEDL = () => {
             hidden={["2", "4"].includes(refId)}
             tieneBoton={["1"].includes(refId)}
             onAddClick={handleNuevoDetalle}
-            enabled={refId === "1" ? false : true}
+            enabled={!["1"].includes(refId)}
             className={widthMap[ancho]}
             ref={(el) => (cardRef.current[refId] = el)}
           >
@@ -1273,7 +1273,6 @@ const PageFormatoEDL = () => {
           }
         />
       )}
-
 
 
     </>
