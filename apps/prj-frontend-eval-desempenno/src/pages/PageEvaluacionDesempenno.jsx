@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+
 import { useFetch } from "../hooks/useFetch";
+import useLazyFetch from "../hooks/useLazyFetch";
+
 import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
+import { useWidthMap } from "../hooks/useWidthMap";
 import Card from "../components/Card"
 import Select from "../components/Select";
 import { AlertDialog } from "../components/AlertDialog";
@@ -12,14 +16,25 @@ import { useNavigateTo } from "../utils/useNavigateTo";
 import { clearFetchCache } from "../hooks/useFetch";
 
 const PageEvaluacionDesempenno = () => {
-  const API_RESULT_LISTAR = "/llamada/fetch/listalikert";
+  const posID = sessionStorage.getItem("posID") ?? "";
+  const API_RESULT_MANTEN = "/llamada/fetch/grabar_encuestaEvaLab"
+  const API_RESULT_LISTAR = useMemo(() => {
+    return `/llamada/fetch/listalikert?dato=${encodeURIComponent(posID)}`;
+  }, [posID]);
   const { usuario, logout } = useAuth();
   const navigateTo = useNavigateTo();
   const tablaRef = useRef(null);
   const cardRef = useRef(null);
-  const selectRef = useRef(null);
+  const cardLitaRef = useRef([]);
+  const currentRef = useRef([]);
+  const { runFetch } = useLazyFetch();
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
+
   const [isLoading, setIsLoading] = useState(false);
+  const [malResult, setMalResult] = useState("")
+  const [sentOK, setsentOK] = useState(true);
+
+  const widthMap = useWidthMap();
   const [showObsModal, setShowObsModal] = useState(false);
   const [obsData, setObsData] = useState(null);
   const [obsText, setObsText] = useState("");
@@ -36,14 +51,15 @@ const PageEvaluacionDesempenno = () => {
     onConfirm: null,
   });
 
-  // const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
-  // const infoMeta = preData?.[0]?.split("|") ?? [];
-  // const info = preData?.[1]?.split("|") ?? [];
 
-  // const informacion = (infoMeta ?? []).map((meta, idx) => ({
-  //   data: (info ?? [])[idx] ?? "",
-  //   metadata: (meta ?? "").split("*"),
-  // }));
+  const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
+  const infoMeta = preData?.[0]?.split("|") ?? [];
+  const info = preData?.[1]?.split("|") ?? [];
+
+  const informacion = (infoMeta ?? []).map((meta, idx) => ({
+    data: (info ?? [])[idx] ?? "",
+    metadata: (meta ?? "").split("*"),
+  }));
 
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
@@ -74,12 +90,82 @@ const PageEvaluacionDesempenno = () => {
     return mapaListas?.[41]?.slice(2) ?? [];
   }, [mapaListas]);
 
+  useEffect(() => {
+    informacion.forEach((item) => {
+      const meta = item.metadata;
+      const idx = Number(meta[5]);
+      const tipo = meta[4];
+      if (tipo === "0" && !currentRef.current[idx]) {
+        const [grupo, posicion] = meta[6]?.split(".") ?? [];
+        currentRef.current[idx] = {
+          campo: meta[0],
+          grupo,
+          posicion,
+          valor: item.data,
+          nroRef:idx
+        };
+      }
+    });
+  }, [informacion]);
+
+  const proyecto = useMemo(() => {
+    return informacion[5]?.data ?? "";
+  }, [informacion]);
+
+  const forEachRef = (refArray, callback) => {
+    Object.values(refArray.current).forEach((ref) => {
+      if (ref) callback(ref);
+    });
+  };
+
+  useEffect(() => {
+    if (!malResult) return;
+    const timer = setTimeout(() => {
+      setMalResult("");
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [malResult]);
+
+  const snapshotFormRef_Cabeceras = (refArray, grupo) => {
+    const dataCampo = []
+    const dataValor = []
+    if (!refArray?.current) return;
+    forEachRef(refArray, (ref) => {
+      if (grupo && ref.grupo !== grupo) return;
+      if ("campo" in ref) {
+        dataCampo.push(ref.campo)
+        if ([6, 7, 8].includes(ref.nroRef)) {
+          ref.valor = "";
+        } else {
+          dataValor.push(ref.valor)
+        }
+      }
+    });
+    const size = dataCampo.length
+    dataCampo.unshift(size)
+    const dataCampoString = dataCampo.join("|")
+    const dataValorString = dataValor.join("|")
+    return {
+      dataCampoString,
+      dataValorString
+    }
+  };
+
   const limpiarControles = useCallback(() => {
     setRespuestas({})
     setResetKey(prev => prev + 1)
   }, []);
 
   const isMobile = useIsMobile(768, limpiarControles);
+
+  if (Array.isArray(data) && data[0] === "0") {
+    console.log("no hay datos..");
+    return (
+      <div className="text-center text-gray-600 py-10">
+        No Se le ha asignado una Evaluación de Desempeño Laboral
+      </div>
+    );
+  }
 
   const handleChangeRespuesta = ({ pk, value, observacion, clearError }) => {
     setRespuestas(prev => ({
@@ -145,19 +231,54 @@ const PageEvaluacionDesempenno = () => {
   }
 
   const buildResultadoCompleto = (preguntas, respuestas) => {
-    return preguntas.map((item) => {
+    return preguntas.map((item, idx) => {
       const [pk] = item.split("|")
       const r = respuestas[pk] ?? {}
       return {
         pk,
+        nro: idx + 1,
         value: r.value ?? "",
         observacion: r.observacion ?? ""
       }
     });
   }
 
+  const llamadaAPI = async (datosEnv) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setMalResult("");
+
+    console.log("DATA ENVIO:", datosEnv);
+
+    const formData = new FormData();
+    formData.append("data", datosEnv);
+    try {
+      const result = await runFetch(API_RESULT_MANTEN, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (typeof result === "string" &&
+        !result.toLowerCase().startsWith("error")) {
+        setsentOK(true)
+        setMalResult("SE ACTUALIZO LA INFORMACION...");
+
+        console.log("result", result)
+
+      } else {
+        setsentOK(false)
+        setMalResult("No se pudo Guardar la informacion...");
+      }
+    } catch (err) {
+      console.error("Error tecnico:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const handleGrabar = () => {
     const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
+
     const errores = validarObservaciones(resultadoCompleto, mapaListas)
     setErroresObs(errores);
     if (Object.keys(errores).length > 0) {
@@ -167,7 +288,34 @@ const PageEvaluacionDesempenno = () => {
       });
       return;
     }
-    console.log("RESPUESTAS:", resultadoCompleto);
+
+    const vacio = resultadoCompleto.find(item => !item.value);
+    if (vacio) {
+      setAlertState({
+        visible: true,
+        message:  `Debe responder la pregunta ${vacio.nro}`
+      });
+      return;
+    }
+
+    const { dataCampoString, dataValorString } =
+      snapshotFormRef_Cabeceras(currentRef, "1");
+
+    const clean = (txt) => txt?.replace(/\|/g, " ")?.trim() ?? "";
+
+    const resultadoPlano = resultadoCompleto
+      .map(({ pk, value, observacion }) =>
+        `${dataValorString}|${pk}|${value}|${clean(observacion)}`
+      )
+      .join("|");
+
+    const resultFinal = [
+      usuarioID ?? "",
+      dataCampoString ?? "",
+      resultadoPlano ?? ""
+    ].join("|");
+
+    llamadaAPI(resultFinal)
   }
 
   const handleLogout = () => {
@@ -180,6 +328,10 @@ const PageEvaluacionDesempenno = () => {
     limpiarControles()
   }
 
+  const handleChangeSelect = (valor, label) => {
+    console.log("valor:", valor, "label:", label)
+  }
+
   if (loading) {
     return <div>Cargando datos...</div>;
   }
@@ -190,30 +342,119 @@ const PageEvaluacionDesempenno = () => {
     return <div>No hay datos disponibles</div>;
   }
 
+  const renderCampo = (item, idx) => {
+    const meta = item.metadata;
+    const tipo = meta[4];
+    const grupo = item.grupo;
+    const posicion = item.posicion;
+    const getBool = (v, def) => (v ? v === "1" : def);
+    if (tipo === "0") {
+      return null;
+    }
+
+    const valorInicialBase = {
+      valor: item.data,
+      campo: meta[0],
+      required: meta[1],
+      max: meta[2],
+      tipo_dato: meta[3],
+      tipo_ctl: tipo,
+      nro_ref: meta[5],
+      grupo,
+      posicion,
+    };
+
+    const baseProps = {
+      ref: (el) => (currentRef.current[Number(meta[5])] = el),
+      label: meta[7],
+      labelPosition: Number(meta[9] ?? 0),
+      enabled: getBool(meta?.[10], true),
+      hidden: getBool(meta?.[11], false)
+    };
+
+    switch (tipo) {
+      case "1": // Input
+      case "2": {// Date
+        const inputType = tipo === "2" && "2" || "1";
+        return (
+          <Input
+            key={idx}
+            type={inputType}
+            {...baseProps}
+            valorInicial={{
+              ...valorInicialBase
+            }}
+            span={Number(meta[8] ?? 8)}
+            value={item.data}
+          />
+        )
+      };
+
+      case "4": // Select
+        return (
+          <Select
+            key={idx}
+            {...baseProps}
+            valorInicial={{
+              ...valorInicialBase,
+              seleccion : meta[12]
+            }}
+            span={Number(meta[8] ?? 8)}
+            lista={mapaListas[meta[5]]}
+            value={item.data}
+            onChange={(v, lbl) => handleChangeSelect(meta[5], v, lbl)}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const staticCards = {
+    "3": (
+      <>
+        <div className="flex flex-col gap-1">
+          <div>
+            <span className="font-normal">PROYECTO :</span>{" "}
+            <span className="font-bold">{proyecto}</span>
+          </div>
+          <div>
+            <span className="font-normal">COLABORADOR :</span>{" "}
+            <span className="font-bold">{nombre}</span>
+          </div>
+        </div>
+      </>
+    )
+  }
   return (
     <>
-      <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[60%]">
-        <label className="flex flex-col gap-2 mb-4 text-4xl">
-          <span className="font-normal">Evaluacion Desempeño</span>
-        </label>
-        {unico === "1" ? (
-            <div className="flex flex-col items-start text-left">
-              <span className="font-normal">COLABORADOR :</span>
-              <span className="font-bold">{nombre}</span>
-            </div>
-          ):(
-            <Select
-              label="Seleccione un colaborador:"
-              ref={selectRef}
-              lista={mapaListas?.[17]}
-              value="2"
-              valorInicial={{valor: "dato inicio", campo: "12.34",seleccion: "1" }}
-              span={12}
-              labelPosition={0}
-            />
-        )}
-
-      </Card>
+      {mapaListas[22]?.map((row) => {
+        const [refId, title, ancho] = row.split("|");
+        return (
+          <Card
+            key={refId}
+            title={title}
+            layout={refId === "3" ? "flex" : "grid"}
+            hidden={["2", "4"].includes(refId)}
+            // tieneBoton={["1"].includes(refId)}
+            // onAddClick={handleNuevoDetalle}
+            enabled={!["1"].includes(refId)}
+            className={widthMap[ancho]}
+            ref={(el) => { if (el) cardLitaRef.current[refId] = el; }}
+          >
+            {staticCards[refId] ??
+              informacion
+                .map((item) => {
+                    const [grupo, posicion] = item.metadata[6]?.split(".") ?? [];
+                    return {...item, grupo, posicion};
+                  })
+                .filter((item) => item.grupo === refId)
+                .map((item, idx) => renderCampo(item, idx))
+            }
+          </Card>
+        );
+      })}
 
       {isMobile ? (
         preguntas.length ? (
@@ -270,6 +511,16 @@ const PageEvaluacionDesempenno = () => {
         >
           Limpiar
         </button>
+        {malResult && (
+          <p className={`text-center
+            ${sentOK
+              ? "text-green-800 text-lg font-semibold"
+              : "text-red-600 text-sm"
+            }`}
+          >
+            {malResult}
+          </p>
+        )}
         {unico === "1" ? (
           <button className="px-8 py-2 rounded-md shadow-sm bg-gray-200 text-gray-800 hover:bg-gray-300 cursor-pointer"
             onClick={handleLogout}

@@ -104,13 +104,17 @@ public class FetchController : Controller
     }
 
     [HttpGet("listalikert")]
-    public string TraerListalikert()
+    public string TraerListalikert(string dato)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(dato))
+            {
+                return "error: dato vacío";
+            }
             string rpta = "";
             daSQL odaSQL = new daSQL(_configuration, "CNX");
-            rpta = odaSQL.ejecutarComando("dbo.prueba_likert");
+            rpta = odaSQL.ejecutarComando("dbo.usp_listar_encuestas_comportamientos", "@data", dato);
             return rpta;
         }
         catch (Exception ex)
@@ -133,6 +137,30 @@ public class FetchController : Controller
             if (rpta == "")
             {
                 _logger.LogError("dbo.usp_mantenimiento_cabecera_detalle_bucle '{data}'", data);
+                rpta = "error";
+            }
+            return rpta;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al guardar la data...");
+            return "error";
+        }
+    }
+
+    [HttpPost("grabar_encuestaEvaLab")]
+    public string Grabar_encuestaEvaLab()
+    {
+        try
+        {
+            string rpta = "";
+            string data = Request.Form["data"].ToString();
+
+            daSQL odaSQL = new daSQL(_configuration, "CNX");
+            rpta = odaSQL.ejecutarComando("dbo.usp_registrar_encuesta_datos_evdeslab", "@data", data);
+            if (rpta == "")
+            {
+                _logger.LogError("dbo.usp_registrar_encuesta_datos_evdeslab '{data}'", data);
                 rpta = "error";
             }
             return rpta;
