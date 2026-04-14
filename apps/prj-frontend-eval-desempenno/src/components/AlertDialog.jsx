@@ -2,7 +2,10 @@ export const AlertDialog = ({ message, onClose }) => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-        <p className="text-gray-800 text-center mb-6">{message}</p>
+
+        <div className="text-gray-800 text-center mb-6">
+          {typeof message === "string" ? <p>{message}</p> : message}
+        </div>
 
         <div className="flex justify-center">
           <button

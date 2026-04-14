@@ -44,6 +44,7 @@ const PageEvaluacionDesempenno = () => {
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
+    onClose: null,
   });
   const [showConfirm, setShowConfirm] = useState({
     visible: false,
@@ -153,6 +154,7 @@ const PageEvaluacionDesempenno = () => {
 
   const limpiarControles = useCallback(() => {
     setRespuestas({})
+    setErroresObs({})
     setResetKey(prev => prev + 1)
   }, []);
 
@@ -248,8 +250,6 @@ const PageEvaluacionDesempenno = () => {
     setIsLoading(true);
     setMalResult("");
 
-    console.log("DATA ENVIO:", datosEnv);
-
     const formData = new FormData();
     formData.append("data", datosEnv);
     try {
@@ -261,9 +261,12 @@ const PageEvaluacionDesempenno = () => {
       if (typeof result === "string" &&
         !result.toLowerCase().startsWith("error")) {
         setsentOK(true)
-        setMalResult("SE ACTUALIZO LA INFORMACION...");
 
-        console.log("result", result)
+        setAlertState({
+          visible: true,
+          message: "SE ACTUALIZO LA INFORMACION...",
+          onClose: () => handleLogout()
+        });
 
       } else {
         setsentOK(false)
@@ -293,7 +296,20 @@ const PageEvaluacionDesempenno = () => {
     if (vacio) {
       setAlertState({
         visible: true,
-        message:  `Debe responder la pregunta ${vacio.nro}`
+        message: (
+          <div className="
+            bg-blue-100
+            text-blue-800
+            px-4
+            py-2
+            rounded
+            inline-block
+            "
+          >
+            Debe responder la pregunta{" "}
+            <span className="font-bold text-red-800">{vacio.nro}</span>
+          </div>
+        )
       });
       return;
     }
@@ -315,7 +331,13 @@ const PageEvaluacionDesempenno = () => {
       resultadoPlano ?? ""
     ].join("|");
 
-    llamadaAPI(resultFinal)
+    setShowConfirm({
+      visible: true,
+      message: "¿Deseas Guardar sus Respuestas... ?",
+      onConfirm: () => {
+        llamadaAPI(resultFinal);
+      }
+    })
   }
 
   const handleLogout = () => {
@@ -437,8 +459,6 @@ const PageEvaluacionDesempenno = () => {
             title={title}
             layout={refId === "3" ? "flex" : "grid"}
             hidden={["2", "4"].includes(refId)}
-            // tieneBoton={["1"].includes(refId)}
-            // onAddClick={handleNuevoDetalle}
             enabled={!["1"].includes(refId)}
             className={widthMap[ancho]}
             ref={(el) => { if (el) cardLitaRef.current[refId] = el; }}
@@ -479,6 +499,7 @@ const PageEvaluacionDesempenno = () => {
       ):(
         configTable?.listaDatos?.length ? (
           <BaseTablaMatrizLikert
+            key={resetKey}
             ref={tablaRef}
             configTable={configTable}
             isEditing={false}
@@ -582,7 +603,10 @@ const PageEvaluacionDesempenno = () => {
       {alertState.visible && (
         <AlertDialog
           message={alertState.message}
-          onClose={() => setAlertState({ visible: false, message: "" })}
+          onClose={() => {
+            alertState.onClose?.();
+            setAlertState({ visible: false, message: "", onClose: null });
+          }}
         />
       )}
       {showConfirm.visible && (
