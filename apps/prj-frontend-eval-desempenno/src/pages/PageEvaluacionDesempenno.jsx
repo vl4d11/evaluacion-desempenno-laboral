@@ -18,9 +18,11 @@ import { clearFetchCache } from "../hooks/useFetch";
 const PageEvaluacionDesempenno = () => {
   const posID = sessionStorage.getItem("posID") ?? "";
   const API_RESULT_MANTEN = "/llamada/fetch/grabar_encuestaEvaLab"
+
   const API_RESULT_LISTAR = useMemo(() => {
     return `/llamada/fetch/listalikert?dato=${encodeURIComponent(posID)}`;
   }, [posID]);
+
   const { usuario, logout } = useAuth();
   const navigateTo = useNavigateTo();
   const tablaRef = useRef(null);
