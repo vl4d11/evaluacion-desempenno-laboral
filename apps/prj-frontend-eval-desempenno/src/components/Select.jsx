@@ -57,7 +57,8 @@ const Select = forwardRef(function Select(
   const handleChange = (e) => {
     const v = e.target.value;
     const lbl = e.target.options[e.target.selectedIndex]?.text ?? "";
-    onChange?.(v, lbl);
+    const filaReg = listaState.find(i => i.split("|")[0] === v);
+    onChange?.(v, lbl, filaReg);
   };
 
   useImperativeHandle(ref, () => ({

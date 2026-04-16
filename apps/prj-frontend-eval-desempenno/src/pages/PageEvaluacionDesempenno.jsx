@@ -27,6 +27,7 @@ const PageEvaluacionDesempenno = () => {
   const navigateTo = useNavigateTo();
   const tablaRef = useRef(null);
   const cardRef = useRef(null);
+  const selectRef = useRef(null);
   const cardLitaRef = useRef([]);
   const currentRef = useRef([]);
   const { runFetch } = useLazyFetch();
@@ -40,6 +41,7 @@ const PageEvaluacionDesempenno = () => {
   const [showObsModal, setShowObsModal] = useState(false);
   const [obsData, setObsData] = useState(null);
   const [obsText, setObsText] = useState("");
+  const [predata, setPredata] = useState("");
   const [respuestas, setRespuestas] = useState({});
   const [resetKey, setResetKey] = useState(0);
   const [erroresObs, setErroresObs] = useState({});
@@ -111,8 +113,12 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [informacion]);
 
-  const proyecto = useMemo(() => {
+  const [proyecto, setProyecto] = useState(() => {
     return informacion[5]?.data ?? "";
+  });
+
+  const isEvaluador = useMemo(() => {
+    return informacion[6]?.data ?? "";
   }, [informacion]);
 
   const forEachRef = (refArray, callback) => {
@@ -316,8 +322,12 @@ const PageEvaluacionDesempenno = () => {
       return;
     }
 
-    const { dataCampoString, dataValorString } =
+    let { dataCampoString, dataValorString } =
       snapshotFormRef_Cabeceras(currentRef, "1");
+
+    if (isEvaluador === "1" && predata !== "") {
+      dataValorString = predata
+    }
 
     const clean = (txt) => txt?.replace(/\|/g, " ")?.trim() ?? "";
 
@@ -352,8 +362,15 @@ const PageEvaluacionDesempenno = () => {
     limpiarControles()
   }
 
-  const handleChangeSelect = (valor, label) => {
-    console.log("valor:", valor, "label:", label)
+  const handleChangeSelect = (valor, label, item) => {
+    const valores = "|".concat(valor.replaceAll("*", "|"))
+    const nuevoProy = item.split("|")[2]
+    setPredata(valores)
+    if (nuevoProy !== "") {
+      setProyecto(nuevoProy)
+    }
+
+    console.log("item", nuevoProy )
   }
 
   if (loading) {
@@ -426,7 +443,7 @@ const PageEvaluacionDesempenno = () => {
             span={Number(meta[8] ?? 8)}
             lista={mapaListas[meta[5]]}
             value={item.data}
-            onChange={(v, lbl) => handleChangeSelect(meta[5], v, lbl)}
+            onChange={(v, lbl, filaReg) => handleChangeSelect(meta[5], v, lbl, filaReg)}
           />
         );
 
@@ -437,20 +454,42 @@ const PageEvaluacionDesempenno = () => {
 
   const staticCards = {
     "3": (
-      <>
-        <div className="flex flex-col gap-1">
-          <div>
-            <span className="font-normal">PROYECTO :</span>{" "}
-            <span className="font-bold">{proyecto}</span>
-          </div>
-          <div>
-            <span className="font-normal">COLABORADOR :</span>{" "}
-            <span className="font-bold">{nombre}</span>
-          </div>
+      <div className="flex flex-col gap-1">
+        <div>
+          <span className="font-normal">PROYECTO :</span>{" "}
+          <span className="font-bold">{proyecto}</span>
         </div>
-      </>
+        {isEvaluador === "0"
+          ? (
+            <div>
+              <span className="font-normal">COLABORADOR :</span>{" "}
+              <span className="font-bold">{nombre}</span>
+            </div>
+          )
+          : null
+        }
+        {isEvaluador === "1"
+          ? (
+            <div>
+              <Select
+                ref={selectRef}
+                label="Seleccione un Colaborador:"
+                valorInicial={{
+                  posicion:"0"
+                }}
+                span={10}
+                lista={mapaListas?.[9]}
+                value={1}
+                onChange={(v, lbl, filaReg) => handleChangeSelect(v, lbl, filaReg)}
+              />
+            </div>
+          )
+          : null
+        }
+      </div>
     )
   }
+
   return (
     <>
       {mapaListas[22]?.map((row) => {
