@@ -30,6 +30,7 @@ const PageEvaluacionDesempenno = () => {
   const selectRef = useRef(null);
   const cardLitaRef = useRef([]);
   const currentRef = useRef([]);
+  const initialProyectoRef = useRef("");
   const { runFetch } = useLazyFetch();
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
 
@@ -126,6 +127,14 @@ const PageEvaluacionDesempenno = () => {
       if (ref) callback(ref);
     });
   };
+
+  useEffect(() => {
+    const val = informacion[5]?.data ?? ""
+    if (initialProyectoRef.current === "" && val !== "") {
+      initialProyectoRef.current = val
+    }
+  },[informacion])
+
 
   useEffect(() => {
     if (!malResult) return;
@@ -273,7 +282,11 @@ const PageEvaluacionDesempenno = () => {
         setAlertState({
           visible: true,
           message: "SE ACTUALIZO LA INFORMACION...",
-          onClose: () => handleLogout()
+          onClose: () => {
+            if (isEvaluador === "0") {
+              handleLogout()
+            }
+          }
         });
 
       } else {
@@ -365,12 +378,13 @@ const PageEvaluacionDesempenno = () => {
   const handleChangeSelect = (valor, label, item) => {
     const valores = "|".concat(valor.replaceAll("*", "|"))
     const nuevoProy = item.split("|")[2]
-    setPredata(valores)
-    if (nuevoProy !== "") {
-      setProyecto(nuevoProy)
-    }
 
-    console.log("item", nuevoProy )
+    setPredata(valores)
+    if (nuevoProy !== null && nuevoProy !== "") {
+      setProyecto(nuevoProy)
+    } else {
+      setProyecto(initialProyectoRef.current)
+    }
   }
 
   if (loading) {
