@@ -7,7 +7,8 @@ const EncuestaLikert = ({
   lista = [],
   onObservacion,
   onChangeRespuesta,
-  errorObs
+  errorObs,
+  disabled = false,
 }) => {
 
   const [state, setState] = useState({
@@ -27,6 +28,7 @@ const EncuestaLikert = ({
   }, [lista]);
 
   const handleObservacion = () => {
+    if (disabled) return;
     if (!state.value) return;
     if (onObservacion) {
       onObservacion({
@@ -48,6 +50,7 @@ const EncuestaLikert = ({
   };
 
   const handleChange = (e) => {
+    if (disabled) return;
     const val = e.target.value;
 
     setState(prev => ({
@@ -98,7 +101,8 @@ const EncuestaLikert = ({
         <select
           value={state.value}
           onChange={handleChange}
-          className="
+          disabled={disabled}
+          className={`
             w-full
             border
             border-gray-300
@@ -109,7 +113,8 @@ const EncuestaLikert = ({
             focus:outline-none
             focus:ring-2
             focus:ring-indigo-500
-          "
+            ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
+          `}
         >
           <option value="" disabled>
             SELECCIONE...
@@ -132,11 +137,13 @@ const EncuestaLikert = ({
             rounded-lg
             transition
             ${
-              errorObs && !state.observacion?.trim()
-                ? "bg-transparent border-red-500 text-red-600"
-                : state.observacion?.trim()
-                ? "bg-sky-100 border-sky-400 text-sky-700"
-                : "bg-transparent border-indigo-400 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100"
+              disabled
+                ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
+                : errorObs && !state.observacion?.trim()
+                  ? "bg-transparent border-red-500 text-red-600"
+                  : state.observacion?.trim()
+                  ? "bg-sky-100 border-sky-400 text-sky-700"
+                  : "bg-transparent border-indigo-400 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100"
             }
           `}
         >

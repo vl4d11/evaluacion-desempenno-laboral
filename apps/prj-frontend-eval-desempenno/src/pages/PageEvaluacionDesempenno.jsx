@@ -46,6 +46,9 @@ const PageEvaluacionDesempenno = () => {
   const [respuestas, setRespuestas] = useState({});
   const [resetKey, setResetKey] = useState(0);
   const [erroresObs, setErroresObs] = useState({});
+  const [proyecto, setProyecto] = useState("")
+  const [mapaListas, setMapaListas] = useState({});
+  const [deshabilitaGrilla, setDeshabilitaGrilla] = useState(false);
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
@@ -71,19 +74,32 @@ const PageEvaluacionDesempenno = () => {
     return (data ?? []).slice(1);
   }, [data]);
 
-  const mapaListas = useMemo(() => {
-    if (!listasData?.length) return {};
-    return listasData.reduce((acc, entry) => {
+  // const mapaListas = useMemo(() => {
+  //   if (!listasData?.length) return {};
+  //   return listasData.reduce((acc, entry) => {
+  //     const [itemKey, ...opciones] = entry.split("~");
+  //     acc[itemKey] = opciones;
+  //     return acc;
+  //   }, {});
+  // }, [listasData]);
+
+  useEffect(() => {
+    if (!listasData?.length) {
+      setMapaListas({});
+      return;
+    }
+    const nuevoMapa = listasData.reduce((acc, entry) => {
       const [itemKey, ...opciones] = entry.split("~");
       acc[itemKey] = opciones;
       return acc;
     }, {});
+    setMapaListas(nuevoMapa);
   }, [listasData]);
 
   const configTable = useMemo(() => {
     if (!mapaListas?.[41]) return;
     return ({
-      title: "Lista de Comportamientos para el examen a rendir",
+      title: "Lista de Preguntas para Evaluar:",
       isPaginar: true,
       listaDatos: mapaListas[41],
       offsetColumnas: 1,
@@ -114,9 +130,11 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [informacion]);
 
-  const [proyecto, setProyecto] = useState(() => {
-    return informacion[5]?.data ?? "";
-  });
+  console.log("mapaListas", mapaListas?.[9])
+
+  // const [proyecto, setProyecto] = useState(() => {
+  //   return informacion[5]?.data ?? "";
+  // });
 
   const isEvaluador = useMemo(() => {
     return informacion[6]?.data ?? "";
@@ -172,13 +190,21 @@ const PageEvaluacionDesempenno = () => {
   const limpiarControles = useCallback(() => {
     setRespuestas({})
     setErroresObs({})
+    if (selectRef.current) {
+      selectRef.current.setValue("");
+    }
+    setDeshabilitaGrilla(true)
+    setProyecto("")
     setResetKey(prev => prev + 1)
   }, []);
 
   const isMobile = useIsMobile(768, limpiarControles);
 
+  useEffect(() => {
+    limpiarControles();
+  }, [limpiarControles]);
+
   if (Array.isArray(data) && data[0] === "0") {
-    console.log("no hay datos..");
     return (
       <div className="text-center text-gray-600 py-10">
         No Se le ha asignado una Evaluación de Desempeño Laboral
@@ -262,6 +288,12 @@ const PageEvaluacionDesempenno = () => {
     });
   }
 
+  const actualizandoDatosEncuesta = () => {
+    setDeshabilitaGrilla(true);
+
+
+  }
+
   const llamadaAPI = async (datosEnv) => {
     if (isLoading) return;
     setIsLoading(true);
@@ -285,6 +317,8 @@ const PageEvaluacionDesempenno = () => {
           onClose: () => {
             if (isEvaluador === "0") {
               handleLogout()
+            } else {
+              actualizandoDatosEncuesta()
             }
           }
         });
@@ -376,14 +410,19 @@ const PageEvaluacionDesempenno = () => {
   }
 
   const handleChangeSelect = (valor, label, item) => {
-    const valores = "|".concat(valor.replaceAll("*", "|"))
-    const nuevoProy = item.split("|")[2]
+    if (valor !== "") {
+      setDeshabilitaGrilla(false)
+      const valores = "|".concat(valor.replaceAll("*", "|"))
+      const nuevoProy = item.split("|")[2]
 
-    setPredata(valores)
-    if (nuevoProy !== null && nuevoProy !== "") {
-      setProyecto(nuevoProy)
+      setPredata(valores)
+      if (nuevoProy !== null && nuevoProy !== "") {
+        setProyecto(nuevoProy)
+      } else {
+        setProyecto(initialProyectoRef.current)
+      }
     } else {
-      setProyecto(initialProyectoRef.current)
+      limpiarControles()
     }
   }
 
@@ -489,7 +528,7 @@ const PageEvaluacionDesempenno = () => {
                 ref={selectRef}
                 label="Seleccione un Colaborador:"
                 valorInicial={{
-                  posicion:"0"
+                  posicion:"0", seleccion:"1"
                 }}
                 span={10}
                 lista={mapaListas?.[9]}
@@ -547,6 +586,7 @@ const PageEvaluacionDesempenno = () => {
                 onObservacion={handleObservacion}
                 onChangeRespuesta={handleChangeRespuesta}
                 errorObs={erroresObs[pks]}
+                disabled={deshabilitaGrilla}
               />
             )
           })
@@ -566,15 +606,16 @@ const PageEvaluacionDesempenno = () => {
             onChangeRespuesta={handleChangeRespuesta}
             erroresObs={erroresObs}
             respuestas={respuestas}
+            disabled={deshabilitaGrilla}
           />
         ): null
       )}
 
       <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[40%] mt-4">
         <button
-          disabled={isLoading}
+          disabled={isLoading || deshabilitaGrilla}
           className={`px-8 py-2 rounded-md shadow-sm text-white
-            ${isLoading
+            ${(isLoading || deshabilitaGrilla)
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-indigo-500 hover:bg-indigo-600 cursor-pointer"
             }`}

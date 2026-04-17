@@ -23,13 +23,19 @@ const Fila = memo(
     onRadioChange,
     rowKey,
     tieneError,
+    disabled,
   }) =>
   (
     <div
       data-row-index={virtualRow.index}
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={`absolute left-0 flex border-b border-gray-200 cursor-pointer transition-colors duration-150 ${isSelected ? "bg-indigo-200" : isEven ? "bg-white" : "bg-gray-50"} hover:bg-indigo-100 active:bg-indigo-300`}
+      onClick={disabled ? undefined : onClick}
+      onDoubleClick={disabled ? undefined : onDoubleClick}
+      className={`
+        absolute left-0 flex border-b border-gray-200 transition-colors duration-150
+        ${disabled ? "opacity-60 pointer-events-none" : "cursor-pointer"}
+        ${isSelected ? "bg-indigo-200" : isEven ? "bg-white" : "bg-gray-50"}
+        hover:bg-indigo-100 active:bg-indigo-300
+      `}
       style={{
         transform: `translateY(${virtualRow.start}px)`,
         width: `${effectiveWidth}px`,
@@ -81,6 +87,7 @@ const Fila = memo(
               type="radio"
               name={`radio-group-${rowKey}`}
               value={opt.value}
+              disabled={disabled}
               checked={radioState?.[rowKey]?.value === opt.value}
               onChange={() => onRadioChange?.(rowKey, opt.value, opt.score)}
               className="
@@ -115,6 +122,7 @@ const Fila = memo(
           `}
           onClick={(e) => {
             e.stopPropagation();
+            if (disabled) return;
             onObsClick?.(virtualRow.index);
           }}
         >
@@ -134,7 +142,8 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   opcionesRadio = [],
   onChangeRespuesta,
   erroresObs = {},
-  respuestas = {}
+  respuestas = {},
+  disabled = false,
 }, ref) {
   const {
     title = "",
@@ -234,49 +243,51 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
 
   const handleKeyDown = useCallback(
     (e) => {
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-      if (
-        e.key === "Enter" &&
-        document.activeElement === searchInputRef.current
-      ) {
-        e.stopPropagation();
-        e.preventDefault();
-        return;
-      }
-      if (rowVirtualizer.getTotalSize() === 0) return;
-      if (e.key === "ArrowDown") {
-        setSelectedIndex((prev) => {
-          const next =
-            prev === null
-              ? 0
-              : Math.min(prev + 1, rowVirtualizer.getTotalSize() - 1);
-          rowVirtualizer.scrollToIndex(next, {
-            align: "center",
-            behavior: "smooth",
-          });
-          return next;
-        });
-        e.preventDefault();
-      } else if (e.key === "ArrowUp") {
-        setSelectedIndex((prev) => {
-          const next = prev === null ? 0 : Math.max(prev - 1, 0);
-          rowVirtualizer.scrollToIndex(next, {
-            align: "center",
-            behavior: "smooth",
-          });
-          return next;
-        });
-        e.preventDefault();
-      } else if (e.key === "Enter" && selectedIndex != null) {
-        const filaSeleccionada = datosTabla[selectedIndex];
-        if (filaSeleccionada && onSelect) {
-          // propaga el registro al padre
-          onSelect(filaSeleccionada.completa);
+      if (!disabled) {
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+        if (
+          e.key === "Enter" &&
+          document.activeElement === searchInputRef.current
+        ) {
+          e.stopPropagation();
+          e.preventDefault();
+          return;
         }
-        e.preventDefault();
+        if (rowVirtualizer.getTotalSize() === 0) return;
+        if (e.key === "ArrowDown") {
+          setSelectedIndex((prev) => {
+            const next =
+              prev === null
+                ? 0
+                : Math.min(prev + 1, rowVirtualizer.getTotalSize() - 1);
+            rowVirtualizer.scrollToIndex(next, {
+              align: "center",
+              behavior: "smooth",
+            });
+            return next;
+          });
+          e.preventDefault();
+        } else if (e.key === "ArrowUp") {
+          setSelectedIndex((prev) => {
+            const next = prev === null ? 0 : Math.max(prev - 1, 0);
+            rowVirtualizer.scrollToIndex(next, {
+              align: "center",
+              behavior: "smooth",
+            });
+            return next;
+          });
+          e.preventDefault();
+        } else if (e.key === "Enter" && selectedIndex != null) {
+          const filaSeleccionada = datosTabla[selectedIndex];
+          if (filaSeleccionada && onSelect) {
+            // propaga el registro al padre
+            onSelect(filaSeleccionada.completa);
+          }
+          e.preventDefault();
+        }
       }
     },
-    [rowVirtualizer, selectedIndex, datosTabla, onSelect],
+    [rowVirtualizer, selectedIndex, datosTabla, onSelect, disabled],
   );
 
   useEffect(() => {
@@ -485,6 +496,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                   erroresObs[filaItem.completa[0]] &&
                   !respuestas[filaItem.completa[0]]?.observacion?.trim()
                 }
+                disabled={disabled}
               />
             );
           })}
