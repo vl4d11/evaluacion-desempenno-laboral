@@ -21,6 +21,7 @@ const Select = forwardRef(function Select(
 ) {
   const selectRef = useRef(null);
   const prevValueRef = useRef("");
+  const filaRegRef = useRef(null);
   const initialValue = useRef({ ...(valorInicial ?? {}) });
   const [error, setError] = useState(valorInicial?.error ?? false);
   const [enabledState, setEnabledState] = useState(enabled);
@@ -62,6 +63,7 @@ const Select = forwardRef(function Select(
     const lbl = e.target.options[e.target.selectedIndex]?.text ?? "";
     const filaReg = listaState.find(i => i.split("|")[0] === v);
 
+    filaRegRef.current = filaReg;
     if (onBeforeChange) {
       const allow = onBeforeChange(v, lbl, filaReg);
       if (allow === false) {
@@ -81,8 +83,15 @@ const Select = forwardRef(function Select(
     getGrupo: () => initialValue.current?.grupo ?? "",
     getNroRef: () => initialValue.current?.nro_ref ?? "",
     getPosi: () => initialValue.current?.posicion ?? "",
+    getFilaReg: () => filaRegRef?.current ?? "",
+    setFilaReg: (v) => {
+      filaRegRef.current = v;
+    },
     setValue: (v) => {
       if (selectRef.current) selectRef.current.value = v ?? "";
+
+      const fila = listaState.find(i => i.split("|")[0] === (v ?? ""));
+      filaRegRef.current = fila ?? null;
     },
     setValor: (v) => {
       initialValue.current.valor = v ?? ""

@@ -133,7 +133,10 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [informacion]);
 
-  // console.log("mapaListas", mapaListas)
+  useEffect(() => {
+    console.log("mapaListas", mapaListas)
+  },[mapaListas])
+
 
   // const [proyecto, setProyecto] = useState(() => {
   //   return informacion[5]?.data ?? "";
@@ -297,8 +300,43 @@ const PageEvaluacionDesempenno = () => {
 
   const actualizandoDatosEncuesta = () => {
     setDeshabilitaGrilla(true);
+    const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
+    const valor = selectRef.current.getValue()
+    const nuevaKey = valor.split("*")[2];
+    const nuevoArray = resultadoCompleto
+      .map(item => `${item.pk}|${item.value}`);
 
+    setMapaListas(prev => ({
+      ...prev,
+      [nuevaKey]: nuevoArray
+    }));
 
+    const item = selectRef.current.getFilaReg()
+    if (!item) return;
+    const partes = item.split("|")
+    partes[3] = "1"
+    const nuevoItem = partes.join("|");
+    selectRef.current.setFilaReg(nuevoItem)
+
+    setMapaListas(prev => ({
+      ...prev,
+      9: (prev[9] ?? []).map(el => {
+        const clave = el.split("|")[0];
+        return clave === partes[0] ? nuevoItem : el;
+      })
+    }));
+
+    setMapaListas(prev => {
+      const nuevoMapa = {
+        ...prev,
+        [nuevaKey]: nuevoArray
+      };
+      nuevoMapa[9] = (prev[9] ?? []).map(el => {
+        const clave = el.split("|")[0];
+        return clave === partes[0] ? nuevoItem : el;
+      });
+      return nuevoMapa;
+    });
   }
 
   const llamadaAPI = async (datosEnv) => {
@@ -556,11 +594,9 @@ const PageEvaluacionDesempenno = () => {
                 lista={mapaListas?.[9]}
                 value={1}
                 onBeforeChange={(v, lbl, filaReg) => {
-
                   const totalConValor = Object.values(respuestas)
                     .filter(r => r.value !== undefined && r.value !== "")
                     .length;
-
                   if (!(tieneEncuestaAnterior === "0" && totalConValor !== 0)) {
                     return true;
                   }
