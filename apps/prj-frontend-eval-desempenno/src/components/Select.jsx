@@ -7,6 +7,7 @@ const Select = forwardRef(function Select(
     value = "",
     valorInicial = {},
     onChange,
+    onBeforeChange,
     className = "",
     labelPosition = 0,
     lista,
@@ -19,6 +20,7 @@ const Select = forwardRef(function Select(
   ref
 ) {
   const selectRef = useRef(null);
+  const prevValueRef = useRef("");
   const initialValue = useRef({ ...(valorInicial ?? {}) });
   const [error, setError] = useState(valorInicial?.error ?? false);
   const [enabledState, setEnabledState] = useState(enabled);
@@ -55,9 +57,18 @@ const Select = forwardRef(function Select(
   }, [listaState]);
 
   const handleChange = (e) => {
+    const prev = prevValueRef.current;
     const v = e.target.value;
     const lbl = e.target.options[e.target.selectedIndex]?.text ?? "";
     const filaReg = listaState.find(i => i.split("|")[0] === v);
+
+    if (onBeforeChange) {
+      const allow = onBeforeChange(v, lbl, filaReg);
+      if (allow === false) {
+        e.target.value = prev;
+        return;
+      }
+    }
     onChange?.(v, lbl, filaReg);
   };
 
@@ -149,6 +160,9 @@ const Select = forwardRef(function Select(
           <select
             ref={selectRef}
             defaultValue={defaultVal}
+            onFocus={() => {
+              prevValueRef.current = selectRef.current?.value ?? "";
+            }}
             onChange={handleChange}
             disabled={!enabledState}
             className={`border rounded px-3 py-2 outline-none w-full

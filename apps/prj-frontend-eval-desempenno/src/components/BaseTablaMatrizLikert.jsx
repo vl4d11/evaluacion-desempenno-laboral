@@ -144,6 +144,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   erroresObs = {},
   respuestas = {},
   disabled = false,
+  initialValues = [],
 }, ref) {
   const {
     title = "",
@@ -172,6 +173,34 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   const [searchText, setSearchText] = useState("");
   const [radioState, setRadioState] = useState({});
   const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!Array.isArray(initialValues) || initialValues.length === 0) return;
+    const nuevoEstado = {};
+    initialValues.forEach(item => {
+      const [pk, value] = item.split("|");
+      if (pk && value) {
+        nuevoEstado[pk] = { value, score: value };
+      }
+    });
+    setRadioState(prev => {
+      const same =
+        Object.keys(prev).length === Object.keys(nuevoEstado).length &&
+        Object.keys(nuevoEstado).every(k => prev[k]?.value === nuevoEstado[k]?.value);
+      if (same) return prev;
+      return nuevoEstado;
+    });
+    initialValues.forEach(item => {
+      const [pk, value] = item.split("|");
+      if (pk && value) {
+        onChangeRespuesta?.({
+          pk,
+          value
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues]);
 
   useImperativeHandle(ref, () => ({
     obtenerRadioState: () => {

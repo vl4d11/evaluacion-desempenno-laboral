@@ -27,10 +27,11 @@ const PageEvaluacionDesempenno = () => {
   const navigateTo = useNavigateTo();
   const tablaRef = useRef(null);
   const cardRef = useRef(null);
-  const selectRef = useRef(null);
   const cardLitaRef = useRef([]);
   const currentRef = useRef([]);
+  const selectRef = useRef(null)
   const initialProyectoRef = useRef("");
+
   const { runFetch } = useLazyFetch();
   const { data, loading, error } = useFetch(API_RESULT_LISTAR);
 
@@ -49,6 +50,8 @@ const PageEvaluacionDesempenno = () => {
   const [proyecto, setProyecto] = useState("")
   const [mapaListas, setMapaListas] = useState({});
   const [deshabilitaGrilla, setDeshabilitaGrilla] = useState(false);
+  const [respuestaTrabajador, setRespuestaTrabajador] = useState([])
+  const [tieneEncuestaAnterior, setTieneEncuestaAnterior] = useState("")
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
@@ -130,7 +133,7 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [informacion]);
 
-  console.log("mapaListas", mapaListas?.[9])
+  // console.log("mapaListas", mapaListas)
 
   // const [proyecto, setProyecto] = useState(() => {
   //   return informacion[5]?.data ?? "";
@@ -187,14 +190,18 @@ const PageEvaluacionDesempenno = () => {
     }
   };
 
-  const limpiarControles = useCallback(() => {
+  const limpiarControles = useCallback((skipProyecto = false) => {
     setRespuestas({})
     setErroresObs({})
-    if (selectRef.current) {
-      selectRef.current.setValue("");
+
+    if (!skipProyecto) {
+      if (selectRef.current) {
+        selectRef.current.setValue("");
+      }
+      setProyecto("")
+      setDeshabilitaGrilla(true)
     }
-    setDeshabilitaGrilla(true)
-    setProyecto("")
+    setRespuestaTrabajador([])
     setResetKey(prev => prev + 1)
   }, []);
 
@@ -409,17 +416,32 @@ const PageEvaluacionDesempenno = () => {
     limpiarControles()
   }
 
+  const recuperarEncuesta = (codTrab) => {
+    const respuestas = mapaListas?.[codTrab]
+    setRespuestaTrabajador(respuestas)
+  }
+
   const handleChangeSelect = (valor, label, item) => {
     if (valor !== "") {
-      setDeshabilitaGrilla(false)
       const valores = "|".concat(valor.replaceAll("*", "|"))
       const nuevoProy = item.split("|")[2]
+      const rindioExamen = item.split("|")[3]
+      const codTrab = valores.split("|")[3]
 
+      setTieneEncuestaAnterior(rindioExamen)
       setPredata(valores)
       if (nuevoProy !== null && nuevoProy !== "") {
         setProyecto(nuevoProy)
       } else {
         setProyecto(initialProyectoRef.current)
+      }
+      if (rindioExamen === "1") {
+        limpiarControles(true)
+        setDeshabilitaGrilla(true)
+        recuperarEncuesta(codTrab)
+      } else {
+        limpiarControles(true);
+        setDeshabilitaGrilla(false);
       }
     } else {
       limpiarControles()
@@ -528,12 +550,35 @@ const PageEvaluacionDesempenno = () => {
                 ref={selectRef}
                 label="Seleccione un Colaborador:"
                 valorInicial={{
-                  posicion:"0", seleccion:"1"
+                  posicion: "0", seleccion: "1"
                 }}
                 span={10}
                 lista={mapaListas?.[9]}
                 value={1}
-                onChange={(v, lbl, filaReg) => handleChangeSelect(v, lbl, filaReg)}
+                onBeforeChange={(v, lbl, filaReg) => {
+
+                  const totalConValor = Object.values(respuestas)
+                    .filter(r => r.value !== undefined && r.value !== "")
+                    .length;
+
+                  if (!(tieneEncuestaAnterior === "0" && totalConValor !== 0)) {
+                    return true;
+                  }
+                  setShowConfirm({
+                    visible: true,
+                    message: "¿Perdera Cambios no Guardados... ?",
+                    onConfirm: () => {
+                      if (selectRef.current) {
+                        selectRef.current.setValue(v);
+                      }
+                      handleChangeSelect(v, lbl, filaReg);
+                    }
+                  });
+                  return false; // BLOQUEA EL CAMBIO
+                }}
+                onChange={(v, lbl, filaReg) => {
+                  handleChangeSelect(v, lbl, filaReg)
+                }}
               />
             </div>
           )
@@ -587,6 +632,7 @@ const PageEvaluacionDesempenno = () => {
                 onChangeRespuesta={handleChangeRespuesta}
                 errorObs={erroresObs[pks]}
                 disabled={deshabilitaGrilla}
+                initialValues={respuestaTrabajador}
               />
             )
           })
@@ -607,6 +653,7 @@ const PageEvaluacionDesempenno = () => {
             erroresObs={erroresObs}
             respuestas={respuestas}
             disabled={deshabilitaGrilla}
+            initialValues={respuestaTrabajador}
           />
         ): null
       )}
@@ -717,7 +764,6 @@ const PageEvaluacionDesempenno = () => {
           }
         />
       )}
-
 
     </>
   );

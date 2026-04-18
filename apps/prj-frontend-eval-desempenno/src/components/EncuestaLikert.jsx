@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 const EncuestaLikert = ({
   nro,
@@ -9,6 +9,7 @@ const EncuestaLikert = ({
   onChangeRespuesta,
   errorObs,
   disabled = false,
+  initialValues = [],
 }) => {
 
   const [state, setState] = useState({
@@ -26,6 +27,31 @@ const EncuestaLikert = ({
       };
     });
   }, [lista]);
+
+  useEffect(() => {
+    if (!Array.isArray(initialValues) || !initialValues.length) return;
+    const found = initialValues.find(item => {
+      const [pk] = item.split("|");
+      return pk === String(pks);
+    });
+    if (found) {
+      const [, value] = found.split("|");
+      const cleanValue = value?.trim() ?? "";
+      setState(prev => {
+        if (prev.value === cleanValue) return prev;
+        return {
+          ...prev,
+          value: cleanValue
+        };
+      });
+      onChangeRespuesta?.({
+        pk: pks,
+        value: cleanValue,
+        clearError: true
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues, pks]);
 
   const handleObservacion = () => {
     if (disabled) return;
@@ -113,6 +139,7 @@ const EncuestaLikert = ({
             focus:outline-none
             focus:ring-2
             focus:ring-indigo-500
+            ${state.value ? "font-bold text-gray-900" : "text-gray-500"}
             ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
           `}
         >
