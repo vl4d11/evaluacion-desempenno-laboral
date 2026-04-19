@@ -52,6 +52,7 @@ const PageEvaluacionDesempenno = () => {
   const [deshabilitaGrilla, setDeshabilitaGrilla] = useState(false);
   const [respuestaTrabajador, setRespuestaTrabajador] = useState([])
   const [tieneEncuestaAnterior, setTieneEncuestaAnterior] = useState("")
+  const tieneEncuestaAnteriorRef = useRef(tieneEncuestaAnterior);
   const [alertState, setAlertState] = useState({
     visible: false,
     message: "",
@@ -134,9 +135,12 @@ const PageEvaluacionDesempenno = () => {
   }, [informacion]);
 
   useEffect(() => {
-    console.log("mapaListas", mapaListas)
-  },[mapaListas])
+    tieneEncuestaAnteriorRef.current = tieneEncuestaAnterior;
+  }, [tieneEncuestaAnterior]);
 
+  // useEffect(() => {
+  //   console.log("mapaListas", mapaListas)
+  // },[mapaListas])
 
   // const [proyecto, setProyecto] = useState(() => {
   //   return informacion[5]?.data ?? "";
@@ -275,8 +279,8 @@ const PageEvaluacionDesempenno = () => {
     return errores;
   };
 
-  const handleFilaSeleccionada = (fila) => {
-    console.log("fila:", fila)
+  const handleFilaSeleccionada = () => {
+    return ""
   }
 
   const handleObservacion = ({pk, onSave}) => {
@@ -298,33 +302,33 @@ const PageEvaluacionDesempenno = () => {
     });
   }
 
-  const actualizandoDatosEncuesta = () => {
+  const actualizandoDatosEncuesta = (resultadoCompleto) => {
     setDeshabilitaGrilla(true);
-    const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
-    const valor = selectRef.current.getValue()
-    const nuevaKey = valor.split("*")[2];
-    const nuevoArray = resultadoCompleto
-      .map(item => `${item.pk}|${item.value}`);
-
-    setMapaListas(prev => ({
-      ...prev,
-      [nuevaKey]: nuevoArray
-    }));
-
-    const item = selectRef.current.getFilaReg()
-    if (!item) return;
+    const select = selectRef.current;
+    if (!select) {
+      return;
+    }
+    const valor = select.getValue?.() ?? "";
+    if (!valor) {
+      return;
+    }
+    const partesValor = valor.split("*");
+    const nuevaKey = partesValor?.[2];
+    if (!nuevaKey) {
+      return;
+    }
+    const nuevoArray = resultadoCompleto.map(({ pk, value }) => `${pk}|${value}`);
+    const item = select.getFilaReg?.();
+    if (!item) {
+      return;
+    }
     const partes = item.split("|")
     partes[3] = "1"
     const nuevoItem = partes.join("|");
-    selectRef.current.setFilaReg(nuevoItem)
+    select.setFilaReg?.(nuevoItem);
 
-    setMapaListas(prev => ({
-      ...prev,
-      9: (prev[9] ?? []).map(el => {
-        const clave = el.split("|")[0];
-        return clave === partes[0] ? nuevoItem : el;
-      })
-    }));
+    tieneEncuestaAnteriorRef.current = "1";
+    setTieneEncuestaAnterior("1")
 
     setMapaListas(prev => {
       const nuevoMapa = {
@@ -339,7 +343,7 @@ const PageEvaluacionDesempenno = () => {
     });
   }
 
-  const llamadaAPI = async (datosEnv) => {
+  const llamadaAPI = async (datosEnv, resultadoCompleto) => {
     if (isLoading) return;
     setIsLoading(true);
     setMalResult("");
@@ -356,14 +360,16 @@ const PageEvaluacionDesempenno = () => {
         !result.toLowerCase().startsWith("error")) {
         setsentOK(true)
 
+        if (isEvaluador === "1") {
+          actualizandoDatosEncuesta(resultadoCompleto);
+        }
+
         setAlertState({
           visible: true,
           message: "SE ACTUALIZO LA INFORMACION...",
           onClose: () => {
             if (isEvaluador === "0") {
-              handleLogout()
-            } else {
-              actualizandoDatosEncuesta()
+              handleLogout();
             }
           }
         });
@@ -439,7 +445,7 @@ const PageEvaluacionDesempenno = () => {
       visible: true,
       message: "¿Deseas Guardar sus Respuestas... ?",
       onConfirm: () => {
-        llamadaAPI(resultFinal);
+        llamadaAPI(resultFinal, resultadoCompleto);
       }
     })
   }
@@ -597,7 +603,9 @@ const PageEvaluacionDesempenno = () => {
                   const totalConValor = Object.values(respuestas)
                     .filter(r => r.value !== undefined && r.value !== "")
                     .length;
-                  if (!(tieneEncuestaAnterior === "0" && totalConValor !== 0)) {
+
+                  const tieneAnterior = tieneEncuestaAnteriorRef.current;
+                  if (!(tieneAnterior === "0" && totalConValor !== 0)) {
                     return true;
                   }
                   setShowConfirm({

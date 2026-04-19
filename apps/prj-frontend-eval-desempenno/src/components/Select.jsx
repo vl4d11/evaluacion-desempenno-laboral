@@ -36,6 +36,7 @@ const Select = forwardRef(function Select(
 
   useEffect(() => {
     setListaState(lista ?? []);
+    filaRegRef.current = null;
   }, [lista]);
 
   useEffect(() => {
@@ -83,15 +84,23 @@ const Select = forwardRef(function Select(
     getGrupo: () => initialValue.current?.grupo ?? "",
     getNroRef: () => initialValue.current?.nro_ref ?? "",
     getPosi: () => initialValue.current?.posicion ?? "",
-    getFilaReg: () => filaRegRef?.current ?? "",
+    getFilaReg: () => {
+      if (filaRegRef.current) return filaRegRef.current;
+      const v = selectRef.current?.value ?? "";
+      if (!v) return "";
+      const listaActual = listaState ?? [];
+      const fila = listaActual.find(i => i.split("|")[0] === v);
+      return fila ?? "";
+    },
     setFilaReg: (v) => {
-      filaRegRef.current = v;
+      filaRegRef.current = v ?? "";
     },
     setValue: (v) => {
-      if (selectRef.current) selectRef.current.value = v ?? "";
-
+      if (selectRef.current) {
+        selectRef.current.value = v ?? "";
+      }
       const fila = listaState.find(i => i.split("|")[0] === (v ?? ""));
-      filaRegRef.current = fila ?? null;
+      filaRegRef.current = fila ?? "";
     },
     setValor: (v) => {
       initialValue.current.valor = v ?? ""
