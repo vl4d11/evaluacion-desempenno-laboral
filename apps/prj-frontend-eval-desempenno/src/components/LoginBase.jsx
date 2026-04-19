@@ -49,9 +49,6 @@ function LoginBase() {
           if (ctaMenus === "1" && esEvDesLab === "0") {
             newErrors.password = "No tiene Evaluación Asignada..."
             setErrors(newErrors);
-          } else if (ctaMenus === "1" && esEvDesLab === "2") {
-            newErrors.password = "Ya Rindio Evaluación ..."
-            setErrors(newErrors);
           } else {
 
             loginAuth({ usuario: raw });

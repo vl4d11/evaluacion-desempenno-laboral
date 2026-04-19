@@ -138,14 +138,6 @@ const PageEvaluacionDesempenno = () => {
     tieneEncuestaAnteriorRef.current = tieneEncuestaAnterior;
   }, [tieneEncuestaAnterior]);
 
-  // useEffect(() => {
-  //   console.log("mapaListas", mapaListas)
-  // },[mapaListas])
-
-  // const [proyecto, setProyecto] = useState(() => {
-  //   return informacion[5]?.data ?? "";
-  // });
-
   const isEvaluador = useMemo(() => {
     return informacion[6]?.data ?? "";
   }, [informacion]);

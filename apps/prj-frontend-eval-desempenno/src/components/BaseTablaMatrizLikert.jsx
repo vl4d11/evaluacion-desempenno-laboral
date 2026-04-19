@@ -67,10 +67,19 @@ const Fila = memo(
       {filaFiltrada.map((val, j) => (
         <div
           key={j}
-          className="px-2 py-2 text-left"
+          className="
+            px-2
+            py-2
+            text-left
+            whitespace-normal
+            wrap-break-word
+            text-sm lg:text-base
+            leading-tight
+          "
           style={{
             minWidth: `${cabeceraFiltrada[j][1]}px`,
-            flexShrink: 0,
+            flexShrink: 1,
+            maxWidth: `${cabeceraFiltrada[j][1]}px`,
           }}
         >
           {val}
@@ -427,10 +436,16 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                 py-2
                 font-semibold
                 text-left
+                whitespace-normal
+                wrap-anywhere
+                break-all
+                text-sm lg:text-base
+                leading-tight
               "
               style={{
                 minWidth: `${col[1]}px`,
-                flexShrink: 0,
+                flexShrink: 1,
+                maxWidth: `${col[1]}px`,
               }}
             >
               {col[0]}
@@ -439,7 +454,15 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
           {opcionesRadioParsed && opcionesRadioParsed.map((opt, i) => (
             <div
               key={`hdr-radio-${i}`}
-              className="px-2 py-2 font-semibold text-center"
+              className="
+                px-2
+                py-2
+                font-semibold
+                text-center
+                whitespace-normal
+                wrap-break-word
+                text-xs lg:text-sm
+              "
               style={{ flex: 1, textAlign: "center" }}
             >
               {opt.label}
