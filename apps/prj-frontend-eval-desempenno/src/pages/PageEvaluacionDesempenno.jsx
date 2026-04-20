@@ -112,9 +112,27 @@ const PageEvaluacionDesempenno = () => {
 
   const [usuarioID, unico, nombre] = usuario?.split("|") ?? "";
 
+  const cod_colaborador = useMemo(() => {
+    return informacion[3]?.data ?? "";
+  }, [informacion]);
+
+  const cod_proy = useMemo(() => {
+    return informacion[5]?.data ?? "";
+  }, [informacion]);
+
+  const isEvaluador = useMemo(() => {
+    return informacion[6]?.data ?? "";
+  }, [informacion]);
+
   const preguntas = useMemo(() => {
     return mapaListas?.[41]?.slice(2) ?? [];
   }, [mapaListas]);
+
+
+  const listaColaborador = useMemo(() => {
+    return mapaListas?.[cod_colaborador]
+  }, [mapaListas, cod_colaborador])
+
 
   useEffect(() => {
     informacion.forEach((item) => {
@@ -134,13 +152,11 @@ const PageEvaluacionDesempenno = () => {
     });
   }, [informacion]);
 
+
   useEffect(() => {
     tieneEncuestaAnteriorRef.current = tieneEncuestaAnterior;
   }, [tieneEncuestaAnterior]);
 
-  const isEvaluador = useMemo(() => {
-    return informacion[6]?.data ?? "";
-  }, [informacion]);
 
   const forEachRef = (refArray, callback) => {
     Object.values(refArray.current).forEach((ref) => {
@@ -155,6 +171,16 @@ const PageEvaluacionDesempenno = () => {
     }
   },[informacion])
 
+
+  useEffect(() => {
+    if (isEvaluador === "0") {
+      setProyecto(cod_proy)
+      if (listaColaborador) {
+        setRespuestaTrabajador(listaColaborador)
+      }
+      setDeshabilitaGrilla(!!listaColaborador)
+    }
+  },[isEvaluador, cod_proy, listaColaborador])
 
   useEffect(() => {
     if (!malResult) return;
