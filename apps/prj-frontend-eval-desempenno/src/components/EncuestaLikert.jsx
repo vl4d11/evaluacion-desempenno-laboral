@@ -4,6 +4,7 @@ const EncuestaLikert = ({
   nro,
   label,
   pks,
+  titleGrupo = "",
   lista = [],
   onObservacion,
   onChangeRespuesta,
@@ -93,6 +94,25 @@ const EncuestaLikert = ({
 
   return (
     <div className="block md:hidden w-full px-4 py-3">
+
+      {titleGrupo && (
+        <div className="
+          mb-3
+          px-4
+          py-2.5
+          rounded-lg
+          bg-slate-100
+          border
+          border-slate-400
+          text-base
+          font-bold
+          text-slate-800
+          shadow-sm
+        "
+        >
+          {titleGrupo}
+        </div>
+      )}
 
       <div className="bg-white shadow-md rounded-xl p-4 border border-gray-200 flex flex-col gap-3">
         <label className="flex items-center gap-2">

@@ -149,6 +149,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   rowsPerPage = 20,
   showRowNumber = false,
   opcionesRadio = [],
+  titleGrupo = [],
   onChangeRespuesta,
   erroresObs = {},
   respuestas = {},
@@ -171,6 +172,15 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
       return { label, value, score: value };
     });
   }, [opcionesRadio]);
+
+  const gruposMap = useMemo(() => {
+    if (!Array.isArray(titleGrupo)) return {};
+    return titleGrupo.reduce((acc, item) => {
+      const [id, titulo] = item.split("|");
+      acc[id] = titulo;
+      return acc;
+    }, {});
+  }, [titleGrupo]);
 
   const dataRows = useMemo(() => {
     return listaDatos && listaDatos.length > 2 ? listaDatos.slice(2) : [];
@@ -247,14 +257,32 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
 
   const datosTabla = useMemo(() => {
     const base = isPaginar ? paginatedRows : filteredRows;
-    return base.map((fila) => {
+    const resultado = [];
+    let grupoAnterior = null;
+    let nroFila = 0;
+    const tieneGrupos = Object.keys(gruposMap).length > 0;
+
+    base.forEach((fila) => {
       const partes = fila.split("|");
-      return {
+      const grupoActual = partes[0];
+
+      if (tieneGrupos && grupoActual !== grupoAnterior) {
+        grupoAnterior = grupoActual;
+        resultado.push({
+          isGroup: true,
+          title: gruposMap[grupoActual] ?? grupoActual,
+        });
+      }
+      nroFila++;
+      resultado.push({
+        isGroup: false,
+        nroFila,
         completa: partes,
         visible: partes.slice(offsetColumnas),
-      };
+      });
     });
-  }, [isPaginar, paginatedRows, filteredRows, offsetColumnas]);
+    return resultado;
+  }, [isPaginar, paginatedRows, filteredRows, offsetColumnas, gruposMap]);
 
   const {
     cabeceraFiltrada,
@@ -488,15 +516,40 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const filaItem = datosTabla[virtualRow.index];
             if (!filaItem) return null;
+
+            if (filaItem.isGroup) {
+              return (
+                <div
+                  key={`grp-${virtualRow.index}`}
+                  className="
+                    absolute left-0
+                    bg-blue-50
+                    border-y
+                    border-blue-200
+                    font-bold
+                    text-blue-900
+                    px-4
+                    py-2
+                  "
+                  style={{
+                    transform: `translateY(${virtualRow.start}px)`,
+                    width: `${effectiveWidth}px`,
+                  }}
+                >
+                  {filaItem.title}
+                </div>
+              );
+            }
+
             return (
               <Fila
                 key={virtualRow.index}
                 virtualRow={virtualRow}
                 filaFiltrada={filaItem.visible}
-                rowKey={filaItem.completa[0]}
+                rowKey={filaItem.completa[1]}
                 showRowNumber={showRowNumber}
                 rowNumber={
-                  (isPaginar ? start : 0) + virtualRow.index + 1
+                  (isPaginar ? start : 0) + filaItem.nroFila
                 }
                 isEven={virtualRow.index % 2 === 0}
                 isSelected={virtualRow.index === selectedIndex}
@@ -519,7 +572,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                   });
                 }}
                 onObsClick={(index) => {
-                  const pk = datosTabla[index]?.completa?.[0];
+                  const pk = datosTabla[index]?.completa?.[1];
                   onObsClick?.({
                     pk,
                     onSave: (texto) => {
@@ -545,8 +598,8 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                 }}
                 listaLength={listaDatos.length}
                 tieneError={
-                  erroresObs[filaItem.completa[0]] &&
-                  !respuestas[filaItem.completa[0]]?.observacion?.trim()
+                  erroresObs[filaItem.completa[1]] &&
+                  !respuestas[filaItem.completa[1]]?.observacion?.trim()
                 }
                 disabled={disabled}
               />

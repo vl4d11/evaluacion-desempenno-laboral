@@ -106,11 +106,22 @@ const PageEvaluacionDesempenno = () => {
       title: "Lista de Preguntas para Evaluar:",
       isPaginar: true,
       listaDatos: mapaListas[41],
-      offsetColumnas: 1,
+      offsetColumnas: 2,
     });
   }, [mapaListas]);
 
   const [usuarioID, unico, nombre] = usuario?.split("|") ?? "";
+
+  const mapaGrupoPregunta = useMemo(() => {
+    const grupos = mapaListas?.[88] ?? [];
+    if (!grupos.length) return {};
+
+    return grupos.reduce((acc, item) => {
+      const [pk, titulo] = item.split("|");
+      acc[pk] = titulo?.trim() ?? "";
+      return acc;
+    }, {});
+  }, [mapaListas]);
 
   const cod_colaborador = useMemo(() => {
     return informacion[3]?.data ?? "";
@@ -127,7 +138,6 @@ const PageEvaluacionDesempenno = () => {
   const preguntas = useMemo(() => {
     return mapaListas?.[41]?.slice(2) ?? [];
   }, [mapaListas]);
-
 
   const listaColaborador = useMemo(() => {
     return mapaListas?.[cod_colaborador]
@@ -308,12 +318,15 @@ const PageEvaluacionDesempenno = () => {
   }
 
   const buildResultadoCompleto = (preguntas, respuestas) => {
-    return preguntas.map((item, idx) => {
-      const [pk] = item.split("|")
+    let nro = 0;
+    return preguntas.map((item) => {
+      const partes = item.split("|");
+      const pk = partes[1];
+      nro++;
       const r = respuestas[pk] ?? {}
       return {
         pk,
-        nro: idx + 1,
+        nro,
         value: r.value ?? "",
         observacion: r.observacion ?? ""
       }
@@ -437,6 +450,7 @@ const PageEvaluacionDesempenno = () => {
       });
       return;
     }
+
 
     let { dataCampoString, dataValorString } =
       snapshotFormRef_Cabeceras(currentRef, "1");
@@ -679,25 +693,34 @@ const PageEvaluacionDesempenno = () => {
 
       {isMobile ? (
         preguntas.length ? (
-          preguntas.map((item, idx) => {
-            const partes = item.split("|");
-            const pks = partes[0] ?? idx;
-            const texto = partes[1] ?? "";
-            return (
-              <EncuestaLikert
-                key={`${pks}-${resetKey}`}
-                nro={idx + 1}
-                label={texto}
-                pks={pks}
-                lista={mapaListas?.[35]}
-                onObservacion={handleObservacion}
-                onChangeRespuesta={handleChangeRespuesta}
-                errorObs={erroresObs[pks]}
-                disabled={deshabilitaGrilla}
-                initialValues={respuestaTrabajador}
-              />
-            )
-          })
+          (() => {
+            let ultimoGrupo = "";
+            return preguntas.map((item, idx) => {
+              const partes = item.split("|");
+              const pkGrupo = partes[0] ?? "";
+              const pks = partes[1] ?? idx;
+              const texto = partes[2] ?? "";
+              const grupoActual = mapaGrupoPregunta[pkGrupo];
+              const mostrarGrupo = grupoActual !== ultimoGrupo;
+              ultimoGrupo = grupoActual;
+
+              return (
+                <EncuestaLikert
+                  key={`${pks}-${resetKey}`}
+                  nro={idx + 1}
+                  label={texto}
+                  pks={pks}
+                  titleGrupo={mostrarGrupo ? grupoActual : ""}
+                  lista={mapaListas?.[35]}
+                  onObservacion={handleObservacion}
+                  onChangeRespuesta={handleChangeRespuesta}
+                  errorObs={erroresObs[pks]}
+                  disabled={deshabilitaGrilla}
+                  initialValues={respuestaTrabajador}
+                />
+              )
+            })
+          })()
         ):null
       ):(
         configTable?.listaDatos?.length ? (
@@ -709,6 +732,7 @@ const PageEvaluacionDesempenno = () => {
             rowsPerPage={10}
             showRowNumber={true}
             opcionesRadio={mapaListas?.[35]}
+            titleGrupo={mapaListas?.[88]}
             onSelect={handleFilaSeleccionada}
             onObsClick={handleObservacion}
             onChangeRespuesta={handleChangeRespuesta}
