@@ -24,6 +24,7 @@ const Fila = memo(
     rowKey,
     tieneError,
     disabled,
+    mostrarObservacion,
   }) =>
   (
     <div
@@ -116,28 +117,30 @@ const Fila = memo(
             />
           </div>
         ))}
-      <div
-        className="px-2 py-2 flex justify-center items-center"
-        style={{ flex: 1 }}
-      >
-        <button
-          className={`
-            w-6 h-6 flex items-center justify-center text-xs font-bold rounded
-            transition-colors duration-150
-            ${tieneError
-              ? "bg-red-100 text-red-700 border border-red-600 hover:bg-red-200"
-              : "text-blue-600 border border-blue-500 hover:bg-blue-100 active:bg-blue-200"
-            }
-          `}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (disabled) return;
-            onObsClick?.(virtualRow.index);
-          }}
+      {mostrarObservacion && (
+        <div
+          className="px-2 py-2 flex justify-center items-center"
+          style={{ flex: 1 }}
         >
-          ...
-        </button>
-      </div>
+          <button
+            className={`
+              w-6 h-6 flex items-center justify-center text-xs font-bold rounded
+              transition-colors duration-150
+              ${tieneError
+                ? "bg-red-100 text-red-700 border border-red-600 hover:bg-red-200"
+                : "text-blue-600 border border-blue-500 hover:bg-blue-100 active:bg-blue-200"
+              }
+            `}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (disabled) return;
+              onObsClick?.(virtualRow.index);
+            }}
+          >
+            ...
+          </button>
+        </div>
+      )}
     </div>
   ),
 );
@@ -155,6 +158,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
   respuestas = {},
   disabled = false,
   initialValues = [],
+  mostrarObservacion = true,
 }, ref) {
   const {
     title = "",
@@ -496,12 +500,14 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
               {opt.label}
             </div>
           ))}
-          <div
-            className="px-2 py-2 font-semibold text-center"
-            style={{ flex: 1 }}
-          >
-            OBS
-          </div>
+          {mostrarObservacion && (
+            <div
+              className="px-2 py-2 font-semibold text-center"
+              style={{ flex: 1 }}
+            >
+              OBS
+            </div>
+          )}
         </div>
         {/* Body virtualizado */}
         <div
@@ -602,6 +608,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
                   !respuestas[filaItem.completa[1]]?.observacion?.trim()
                 }
                 disabled={disabled}
+                mostrarObservacion={mostrarObservacion}
               />
             );
           })}

@@ -7,9 +7,11 @@ import { BaseTablaMatrizLikert } from "../components/BaseTablaMatrizLikert";
 import { useWidthMap } from "../hooks/useWidthMap";
 import Card from "../components/Card"
 import Select from "../components/Select";
+import Input from "../components/Input"
 import { AlertDialog } from "../components/AlertDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import EncuestaLikert from "../components/EncuestaLikert";
+import Info from "../components/Info";
 import useIsMobile from "../hooks/useIsMobile";
 import useAuth from "../hooks/useAuth";
 import { useNavigateTo } from "../utils/useNavigateTo";
@@ -29,7 +31,8 @@ const PageEvaluacionDesempenno = () => {
   const cardRef = useRef(null);
   const cardLitaRef = useRef([]);
   const currentRef = useRef([]);
-  const selectRef = useRef(null)
+  const selectRef = useRef(null);
+  const observaRef = useRef(null);
   const initialProyectoRef = useRef("");
 
   const { runFetch } = useLazyFetch();
@@ -64,15 +67,27 @@ const PageEvaluacionDesempenno = () => {
     onConfirm: null,
   });
 
+  // const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
+  // const infoMeta = preData?.[0]?.split("|") ?? [];
+  // const info = preData?.[1]?.split("|") ?? [];
 
-  const preData = typeof data?.[0] === "string" ? data?.[0]?.split("~") : [];
-  const infoMeta = preData?.[0]?.split("|") ?? [];
-  const info = preData?.[1]?.split("|") ?? [];
+  const { infoMeta, info } = useMemo(() => {
+    const preData =
+      typeof data?.[0] === "string"
+        ? data[0].split("~")
+        : [];
+    return {
+      infoMeta: preData[0]?.split("|") ?? [],
+      info: preData[1]?.split("|") ?? [],
+    };
+  }, [data]);
 
-  const informacion = (infoMeta ?? []).map((meta, idx) => ({
-    data: (info ?? [])[idx] ?? "",
-    metadata: (meta ?? "").split("*"),
-  }));
+  const informacion = useMemo(() => {
+    return infoMeta.map((meta, idx) => ({
+      data: (info ?? [])[idx] ?? "",
+      metadata: (meta ?? "").split("*"),
+    }));
+  },[infoMeta, info])
 
   const listasData = useMemo(() => {
     return (data ?? []).slice(1);
@@ -123,17 +138,13 @@ const PageEvaluacionDesempenno = () => {
     }, {});
   }, [mapaListas]);
 
-  const cod_colaborador = useMemo(() => {
-    return informacion[3]?.data ?? "";
-  }, [informacion]);
-
-  const cod_proy = useMemo(() => {
-    return informacion[5]?.data ?? "";
-  }, [informacion]);
-
-  const isEvaluador = useMemo(() => {
-    return informacion[6]?.data ?? "";
-  }, [informacion]);
+  const cod_colaborador = informacion[3]?.data ?? "";
+  const cod_proy = informacion[5]?.data ?? "";
+  const isEvaluador = informacion[6]?.data ?? "";
+  const conObservacion = informacion[7]?.data ?? "";
+  const mensajeCab = informacion[8]?.data ?? "";
+  const mensajeAlert = info?.[9] ?? "";
+  const permiteObservacion = conObservacion === "1";
 
   const preguntas = useMemo(() => {
     return mapaListas?.[41]?.slice(2) ?? [];
@@ -238,6 +249,7 @@ const PageEvaluacionDesempenno = () => {
     }
     setRespuestaTrabajador([])
     setResetKey(prev => prev + 1)
+    observaRef.current.setValue("")
   }, []);
 
   const isMobile = useIsMobile(768, limpiarControles);
@@ -282,7 +294,8 @@ const PageEvaluacionDesempenno = () => {
     }
   };
 
-  const validarObservaciones = (resultadoCompleto, mapaListas) => {
+  const validarObservaciones = (resultadoCompleto, mapaListas, permiteObservacion) => {
+    if (!permiteObservacion) return {};
     const errores = {};
     const opcionesRaw = mapaListas?.[35] ?? [];
     if (!opcionesRaw.length) return errores;
@@ -395,9 +408,14 @@ const PageEvaluacionDesempenno = () => {
           actualizandoDatosEncuesta(resultadoCompleto);
         }
 
+        let mensaje = "SE ACTUALIZO LA INFORMACION..."
+        if (mensajeAlert.trim() !== "") {
+          mensaje = mensajeAlert
+        }
+
         setAlertState({
           visible: true,
-          message: "SE ACTUALIZO LA INFORMACION...",
+          message: mensaje,
           onClose: () => {
             if (isEvaluador === "0") {
               handleLogout();
@@ -419,7 +437,7 @@ const PageEvaluacionDesempenno = () => {
   const handleGrabar = () => {
     const resultadoCompleto = buildResultadoCompleto(preguntas, respuestas)
 
-    const errores = validarObservaciones(resultadoCompleto, mapaListas)
+    const errores = validarObservaciones(resultadoCompleto, mapaListas, permiteObservacion)
     setErroresObs(errores);
     if (Object.keys(errores).length > 0) {
       setAlertState({
@@ -605,15 +623,15 @@ const PageEvaluacionDesempenno = () => {
 
   const staticCards = {
     "3": (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 items-start">
         <div>
-          <span className="font-normal">PROYECTO :</span>{" "}
+          <span className="font-normal">SEDE :</span>{" "}
           <span className="font-bold">{proyecto}</span>
         </div>
         {isEvaluador === "0"
           ? (
             <div>
-              <span className="font-normal">COLABORADOR :</span>{" "}
+              <span className="font-normal">PERSONA EVALUAR :</span>{" "}
               <span className="font-bold">{nombre}</span>
             </div>
           )
@@ -624,7 +642,7 @@ const PageEvaluacionDesempenno = () => {
             <div>
               <Select
                 ref={selectRef}
-                label="Seleccione un Colaborador:"
+                label="Seleccione persona a Evaluar:"
                 valorInicial={{
                   posicion: "0", seleccion: "1"
                 }}
@@ -660,6 +678,7 @@ const PageEvaluacionDesempenno = () => {
           )
           : null
         }
+        <Info mensaje={mensajeCab}  />
       </div>
     )
   }
@@ -717,6 +736,7 @@ const PageEvaluacionDesempenno = () => {
                   errorObs={erroresObs[pks]}
                   disabled={deshabilitaGrilla}
                   initialValues={respuestaTrabajador}
+                  mostrarObservacion={permiteObservacion}
                 />
               )
             })
@@ -740,9 +760,23 @@ const PageEvaluacionDesempenno = () => {
             respuestas={respuestas}
             disabled={deshabilitaGrilla}
             initialValues={respuestaTrabajador}
+            mostrarObservacion={permiteObservacion}
           />
         ): null
       )}
+
+      <Card title="" layout="flex" className="w-full md:w-[80%] mt-4">
+        <Input
+          ref={observaRef}
+          type={"1"}
+          label={"ingrese una Observación"}
+          labelPosition={0}
+          valorInicial={{
+            max: "200"
+          }}
+          span={17}
+        />
+      </Card>
 
       <Card ref={cardRef} title="" layout="flex" className="w-full md:w-[40%] mt-4">
         <button

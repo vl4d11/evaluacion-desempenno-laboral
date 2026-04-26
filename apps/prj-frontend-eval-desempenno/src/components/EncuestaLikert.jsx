@@ -11,6 +11,7 @@ const EncuestaLikert = ({
   errorObs,
   disabled = false,
   initialValues = [],
+  mostrarObservacion = true,
 }) => {
 
   const [state, setState] = useState({
@@ -173,29 +174,32 @@ const EncuestaLikert = ({
           ))}
         </select>
 
-        <button
-          onClick={handleObservacion}
-          className={`
-            mt-1
-            w-full
-            border-2
-            text-sm
-            py-2
-            rounded-lg
-            transition
-            ${
-              disabled
-                ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
-                : errorObs && !state.observacion?.trim()
-                  ? "bg-transparent border-red-500 text-red-600"
-                  : state.observacion?.trim()
-                  ? "bg-sky-100 border-sky-400 text-sky-700"
-                  : "bg-transparent border-indigo-400 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100"
-            }
-          `}
-        >
-          Observación
-        </button>
+        {mostrarObservacion && (
+            <button
+              onClick={handleObservacion}
+              className={`
+                mt-1
+                w-full
+                border-2
+                text-sm
+                py-2
+                rounded-lg
+                transition
+                ${
+                  disabled
+                    ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
+                    : errorObs && !state.observacion?.trim()
+                      ? "bg-transparent border-red-500 text-red-600"
+                      : state.observacion?.trim()
+                      ? "bg-sky-100 border-sky-400 text-sky-700"
+                      : "bg-transparent border-indigo-400 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100"
+                }
+              `}
+            >
+              Observación
+            </button>
+          )
+        }
 
       </div>
     </div>
