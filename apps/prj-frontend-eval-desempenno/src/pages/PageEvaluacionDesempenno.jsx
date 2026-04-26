@@ -249,7 +249,7 @@ const PageEvaluacionDesempenno = () => {
     }
     setRespuestaTrabajador([])
     setResetKey(prev => prev + 1)
-    observaRef.current.setValue("")
+    observaRef.current?.setValue?.("")
   }, []);
 
   const isMobile = useIsMobile(768, limpiarControles);
