@@ -54,6 +54,7 @@ const PageEvaluacionDesempenno = () => {
   const [mapaListas, setMapaListas] = useState({});
   const [deshabilitaGrilla, setDeshabilitaGrilla] = useState(false);
   const [respuestaTrabajador, setRespuestaTrabajador] = useState([])
+  const [filaSeleccionada, setFilaSeleccionada ] = useState("");
   const [tieneEncuestaAnterior, setTieneEncuestaAnterior] = useState("")
   const tieneEncuestaAnteriorRef = useRef(tieneEncuestaAnterior);
   const [alertState, setAlertState] = useState({
@@ -118,7 +119,7 @@ const PageEvaluacionDesempenno = () => {
   const configTable = useMemo(() => {
     if (!mapaListas?.[41]) return;
     return ({
-      title: "Lista de Preguntas para Evaluar:",
+      title: "Preguntas a Evaluar:",
       isPaginar: true,
       listaDatos: mapaListas[41],
       offsetColumnas: 2,
@@ -144,6 +145,7 @@ const PageEvaluacionDesempenno = () => {
   const conObservacion = informacion[7]?.data ?? "";
   const mensajeCab = informacion[8]?.data ?? "";
   const mensajeAlert = info?.[9] ?? "";
+  const pkEvaluadoCab = info?.[10] ?? "";
   const permiteObservacion = conObservacion === "1";
 
   const preguntas = useMemo(() => {
@@ -250,6 +252,7 @@ const PageEvaluacionDesempenno = () => {
     setRespuestaTrabajador([])
     setResetKey(prev => prev + 1)
     observaRef.current?.setValue?.("")
+    observaRef.current?.setEnabled?.(false)
   }, []);
 
   const isMobile = useIsMobile(768, limpiarControles);
@@ -348,6 +351,8 @@ const PageEvaluacionDesempenno = () => {
 
   const actualizandoDatosEncuesta = (resultadoCompleto) => {
     setDeshabilitaGrilla(true);
+    observaRef.current.setEnabled(false)
+
     const select = selectRef.current;
     if (!select) {
       return;
@@ -374,6 +379,9 @@ const PageEvaluacionDesempenno = () => {
     tieneEncuestaAnteriorRef.current = "1";
     setTieneEncuestaAnterior("1")
 
+    const obsGlobal = observaRef.current?.getValue?.()?.trim() ?? ""
+    const codTrab = partes[0].split("*")[2]
+
     setMapaListas(prev => {
       const nuevoMapa = {
         ...prev,
@@ -383,6 +391,12 @@ const PageEvaluacionDesempenno = () => {
         const clave = el.split("|")[0];
         return clave === partes[0] ? nuevoItem : el;
       });
+      if (obsGlobal !== "") {
+        nuevoMapa[8] = [
+          ...(prev[8] ?? []),
+          `${codTrab}|${obsGlobal}`
+        ];
+      }
       return nuevoMapa;
     });
   }
@@ -485,11 +499,26 @@ const PageEvaluacionDesempenno = () => {
       )
       .join("|");
 
-    const resultFinal = [
+    let resultFinal = [
       usuarioID ?? "",
       dataCampoString ?? "",
       resultadoPlano ?? ""
     ].join("|");
+
+    const observa = observaRef.current.getValue()
+    if (observa.trim() !== "") {
+      const filaTrab = filaSeleccionada.split("|")
+      const proy = filaTrab[4]
+      const partes = filaTrab[0].split("*")
+      const metaObs = [
+        pkEvaluadoCab,
+        proy,
+        partes[2],
+        partes[3],
+        observa
+      ].join("|")
+      resultFinal += `~${metaObs}`;
+    }
 
     setShowConfirm({
       visible: true,
@@ -513,10 +542,16 @@ const PageEvaluacionDesempenno = () => {
   const recuperarEncuesta = (codTrab) => {
     const respuestas = mapaListas?.[codTrab]
     setRespuestaTrabajador(respuestas)
+
+    const obsGlobal = mapaListas[8]
+      .find(item => item.split("|")[0] === codTrab)
+      ?.split("|")[1] ?? "";
+    observaRef.current.setValue(obsGlobal)
   }
 
   const handleChangeSelect = (valor, label, item) => {
     if (valor !== "") {
+      setFilaSeleccionada(item)
       const valores = "|".concat(valor.replaceAll("*", "|"))
       const nuevoProy = item.split("|")[2]
       const rindioExamen = item.split("|")[3]
@@ -536,6 +571,7 @@ const PageEvaluacionDesempenno = () => {
       } else {
         limpiarControles(true);
         setDeshabilitaGrilla(false);
+        observaRef.current.setEnabled(true)
       }
     } else {
       limpiarControles()

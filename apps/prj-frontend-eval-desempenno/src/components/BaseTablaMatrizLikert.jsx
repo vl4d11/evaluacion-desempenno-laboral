@@ -288,6 +288,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
     return resultado;
   }, [isPaginar, paginatedRows, filteredRows, offsetColumnas, gruposMap]);
 
+
   const {
     cabeceraFiltrada,
     totalWidth,
@@ -435,7 +436,7 @@ export const BaseTablaMatrizLikert = forwardRef(function BaseTablaMatrizLikert({
               font-bold
               "
             >
-              {`(${totalRegistrosFiltrados} Reg.)`}
+              {`(${totalRegistrosFiltrados} Preguntas)`}
             </span>
           </h2>
         </div>

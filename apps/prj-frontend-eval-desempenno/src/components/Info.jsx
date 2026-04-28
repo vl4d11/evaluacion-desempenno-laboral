@@ -4,6 +4,8 @@ const Info = ({
 }) => {
   if (!mensaje?.trim()) return null;
 
+  const texto = mensaje.replace(/\[\[NL\]\]/g, "\n");
+
   return (
     <div
       className={`
@@ -33,8 +35,8 @@ const Info = ({
           />
         </svg>
         <div className="flex-1">
-          <p className="text-sm md:text-base leading-relaxed text-sky-900">
-            {mensaje}
+          <p className="text-sm md:text-base leading-relaxed text-sky-900 whitespace-pre-line">
+            {texto}
           </p>
         </div>
       </div>
