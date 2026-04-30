@@ -39,9 +39,32 @@ const TextArea = forwardRef(function TextArea(
   }, [hidden]);
 
   const handleChange = (e) => {
-    const v = e?.target?.value ?? "";
+    let v = e?.target?.value ?? "";
+
+    v = v.replace(/[|~^']/g, "");
+
+    const lines = v.split("\n");
+    if (lines.length > 6) {
+      v = lines.slice(0, 6).join("\n");
+    }
     onChange?.(v);
   };
+
+  const handleDown = (e) => {
+    const blocked = ["|", "~", "^", "'"];
+
+    if (blocked.includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+
+    const v = e.target?.value ?? ""
+    const lines = v.split("\n")
+
+    if (e.key === "Enter" && lines.length >= 6) {
+      e.preventDefault();
+    }
+  }
 
   useImperativeHandle(ref, () => ({
     getValue: () => inputRef.current?.value ?? "",
@@ -94,17 +117,8 @@ const TextArea = forwardRef(function TextArea(
           rows={rows}
           maxLength={maxLength}
           disabled={!enabledState}
-          onChange={(e) => {
-            const v = e.target.value;
-            const numRows = v.split("\n").length;
-            if (numRows < 7) {
-              handleChange(e);
-            } else {
-              const limited = v.split("\n").slice(0, 6).join("\n");
-              inputRef.current.value = limited;
-              handleChange({target: {value: limited}});
-            }
-          }}
+          onChange={handleChange}
+          onKeyDown={handleDown}
           className={`border rounded px-3 py-2 outline-none resize-none
           ${error ? "border-red-500" : "border-gray-300"}
           ${enabledState

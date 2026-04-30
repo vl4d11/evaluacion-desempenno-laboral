@@ -1,16 +1,19 @@
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+
+import { useFetch } from "../hooks/useFetch";
+import useLazyFetch from "../hooks/useLazyFetch";
+import { useWidthMap } from "../hooks/useWidthMap";
+
 import Card from "../components/Card"
 import Input from "../components/Input"
 import TextArea from "../components/TextArea";
 import Select from "../components/Select";
 import Checkbox from "../components/Checkbox";
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useFetch } from "../hooks/useFetch";
-import useLazyFetch from "../hooks/useLazyFetch";
-import { useWidthMap } from "../hooks/useWidthMap";
 import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AlertDialog } from "../components/AlertDialog";
+
 
 const PageCompetencias = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaCompetencias";

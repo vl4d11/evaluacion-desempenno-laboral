@@ -28,6 +28,8 @@ const Input = forwardRef(function Input(
   const [error, setError] = useState(valorInicial?.error ?? false);
   const [enabledState, setEnabledState] = useState(enabled);
   const [hiddenState, setHiddenState] = useState(hidden);
+  const INVALID_CHARS = /[|~^']/g;
+  const INVALID_KEYS = ["|", "~", "^", "'"];
 
   // useEffect(() => {
   //   // SOLO DEBUG
@@ -44,13 +46,24 @@ const Input = forwardRef(function Input(
   }, [hidden]);
 
   const handleChange = (e) => {
-    const v = e.target.value;
+    let v = e.target?.value ?? "";
+    v = v.replace(INVALID_CHARS, "")
     onChange?.(v);
   };
 
   const handleNumericChange = (e) => {
+    let v = e.target?.value ?? "";
+    v = v.replace(INVALID_CHARS, "");
+    e.target.value = v;
+
     numericInput.onChange(e);
-    onChange?.(e.target.value);
+    onChange?.(v);
+  };
+
+  const handleKeyDown = (e) => {
+    if (INVALID_KEYS.includes(e.key)) {
+      e.preventDefault();
+    }
   };
 
   let tipo = ""
@@ -123,6 +136,7 @@ const Input = forwardRef(function Input(
             value={usarHook ? numericInput.value : undefined}
             defaultValue={!usarHook ? value : undefined}
             onChange={usarHook ? handleNumericChange : handleChange}
+            onKeyDown={handleKeyDown}
             maxLength={maxLength}
             className={`border rounded px-3 py-2 outline-none w-full
              ${error ? "border-red-500" : "border-gray-300"}

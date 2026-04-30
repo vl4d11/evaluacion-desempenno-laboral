@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useLocation } from "react-router-dom";
+import CryptoJS from "crypto-js";
+
 import { useFetch } from "../hooks/useFetch";
 import useLazyFetch from "../hooks/useLazyFetch";
-
-import { useLocation } from "react-router-dom";
 import { useWidthMap } from "../hooks/useWidthMap";
 
 import Card from "../components/Card"
@@ -14,7 +15,7 @@ import Radio from "../components/Radio"
 import { BaseTablaMatrizBase } from "../components/BaseTablaMatrizBase";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AlertDialog } from "../components/AlertDialog";
-import CryptoJS from "crypto-js";
+
 
 const PageFormatoEDL = () => {
   const API_RESULT_LISTAR = "/llamada/fetch/listaFormatoEv";
