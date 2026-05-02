@@ -240,7 +240,6 @@ const PageFormatoEDL = () => {
           }
         }
 
-
         ref?.setValue?.(valTmp);
         if (typeof ref?.setValor === "function") {
           ref.setValor(valTmp);
@@ -250,11 +249,6 @@ const PageFormatoEDL = () => {
       }
     });
   }, [showModalDetalle, detalleSeleccionado, metaListaFormatDetail]);
-
-  // const mapa = mapaListas?.[42]
-  // useEffect(() => {
-  //   console.log("listaData REAL:", mapa)
-  // },[mapa])
 
   const forEachRef = (refArray, callback) => {
     Object.values(refArray.current).forEach((ref) => {
@@ -436,9 +430,6 @@ const PageFormatoEDL = () => {
   };
 
   const handleFilaSeleccionada = ({ fila, index }) => {
-
-    console.log("fila seleccionada:", fila)
-
     setFilaSeleccionadaConIndex({ fila, index });
     const tituloLocal = configTable?.title ?? configTableBase?.title;
     const evalCab = tituloLocal?.startsWith("Lista") ?? false;
@@ -468,11 +459,6 @@ const PageFormatoEDL = () => {
 
           ref?.setValue?.(valTmp);
           if (typeof ref?.setValor === "function") {
-
-            if (ref.getNroRef() === "17") {
-              console.log("mensaje:",valTmp)
-            }
-
             ref.setValor(valTmp);
           } else if (ref) {
             ref.valor = valTmp;
@@ -498,6 +484,7 @@ const PageFormatoEDL = () => {
             dis === "1" ? "SI" : "NO"
           ].join("|");
         });
+
       listaDetalles.unshift(...labelGrillaDeta)
 
       setListaData(listaDetalles);
@@ -713,8 +700,7 @@ const PageFormatoEDL = () => {
     if (isLoading) return;
     setIsLoading(true);
     setMalResult("");
-
-    console.log("Datos Enviar al backend:", datosEnv)
+    // console.log("Datos Enviar al backend:", datosEnv)
 
     const titulo = cardRef.current[1].getTitle();
     const NUEVO = titulo.toUpperCase().startsWith("NUEVO");
@@ -726,27 +712,20 @@ const PageFormatoEDL = () => {
         body: formData,
       });
 
-      if (typeof result === "string" &&
-        !result.toLowerCase().startsWith("error")) {
+      if (typeof result === "string" && !result.toLowerCase().startsWith("error")) {
         cardRef.current[3].setTitle("")
         setsentOK(true)
         setMalResult("SE ACTUALIZO LA INFORMACION...");
         setSelected(null)
         cardRef.current[1].setTitle("Editar Formato de Evaluación :")
 
-        console.log("Rpsta del API:", result)
-
         if (NUEVO) {
-          console.log("STEP.CAB_DET", step)
-
           const listaResult = result.split("|")
           const clave = listaResult[0]
           const listaDetalle = listaResult.slice(1)
 
           await esperarRenderCompleto();
           const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", clave, true)
-
-          console.log("listaCabecera", listaCabecera)
 
           const lsGrl = listaData.slice(2).map((item, idx) => {
             const partes = item.split("|");
@@ -771,7 +750,6 @@ const PageFormatoEDL = () => {
 
           const listaActual = configTable?.listaDatos ?? [];
           let idxLs = 0;
-
           const nuevaLista = listaActual.map((row, index) => {
             if (index < 2) return row;
             const partes = row.split("|");
@@ -797,8 +775,6 @@ const PageFormatoEDL = () => {
 
         } else {
           if (step === STEP.SOLO_CAB) {
-            console.log("EDITAR STEP.SOLO_CAB", step)
-
             await esperarRenderCompleto();
             const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", result, true)
 
@@ -811,8 +787,6 @@ const PageFormatoEDL = () => {
             }));
           }
           if (step === STEP.SOLO_DET) {
-            console.log("EDITAR STEP.SOLO_DET", step)
-
             const listaResult = result.split("|")
             const existingPk = new Set(
               listaData.slice(2).map(item => safe(item.split("|")[1]))
@@ -851,7 +825,6 @@ const PageFormatoEDL = () => {
             listaTemp.push(...listaTempFiltrado)
             setListaData(listaTemp)
 
-
             const lsGrl = listaTempFiltrado.map(item =>
               item.split("|").slice(0, 6).join("|")
             );
@@ -867,9 +840,6 @@ const PageFormatoEDL = () => {
             );
             const setPkHijo = new Set(listaResult.map(r => safe(r)));
             const nuevosItems = [];
-
-            // NOTA: TAMBIEN ACA PUEDE EXISTS CAB_DET
-            // =====================================
 
             setMapaListas(prev => {
               const lista42 = prev[42] ?? [];
@@ -899,8 +869,111 @@ const PageFormatoEDL = () => {
             });
           }
           if (step === STEP.CAB_DET) {
+            const [cabeceraResult, ...listaResult] = result.split("|");
+            await esperarRenderCompleto();
+            const listaCabecera =
+              snapshotSimpleByGrupo(currentRef, "1", cabeceraResult, true)
 
-            console.log("EDITAR STEP.CAB_DET", step)
+            const nueva41 = prev41 =>
+               (prev41 ?? []).map(item => {
+                 const key = item.split("|")[0];
+                 return key === String(cabeceraResult) ? listaCabecera : item;
+               });
+
+            // NOTA: EDITAR DETALLE
+            // ====================
+            const existingPk = new Set(
+              listaData.slice(2).map(item => safe(item.split("|")[1]))
+            );
+            const usados = new Set();
+            const nuevosPkQueue = listaResult
+              .map(r => safe(r))
+              .filter(r => r !== "");
+
+            const listaTemp = listaData.slice(0, 2)
+            const listaTempFiltrado = listaData.slice(2).map((item) => {
+              const partes = item.split("|");
+              const pkActual = safe(partes[1]);
+              const nuevoPk = safe(nuevosPkQueue[0] ?? "");
+              if (pkActual !== "") {
+                return item;
+              }
+              if (!nuevoPk) {
+                return item;
+              }
+              if (existingPk.has(nuevoPk) || usados.has(nuevoPk)) {
+                return item;
+              }
+              const pkPadre = safe(partes[2]);
+              const codComp = safe(partes[3]);
+              const porc = safe(partes[4]);
+              const disp = safe(partes[5]);
+              const values = [nuevoPk, pkPadre, codComp, porc, disp];
+              const hash = CryptoJS.MD5(buildHashString(...values)).toString(CryptoJS.enc.Hex);
+              partes[0] = hash;
+              partes[1] = nuevoPk;
+              usados.add(nuevoPk);
+              nuevosPkQueue.shift();
+              return partes.join("|");
+            })
+            listaTemp.push(...listaTempFiltrado)
+
+            const nuevosDetalles = nuevosPkQueue.map(pk => {
+              const values = [pk, cabeceraResult, "", "", ""];
+              const hash = CryptoJS.MD5(
+                buildHashString(...values)
+              ).toString(CryptoJS.enc.Hex);
+
+              return [hash, pk, cabeceraResult, "", "", ""].join("|");
+            });
+
+            listaTemp.push(...nuevosDetalles);
+            setListaData(listaTemp)
+            const lsGrl = [...listaTempFiltrado, ...nuevosDetalles].map(item =>
+              item.split("|").slice(0, 6).join("|")
+            );
+
+            const mapLsGrl = new Map(
+              lsGrl.map(r => {
+                const p = r.split("|");
+                return [safe(p[1]), r];
+              })
+            );
+            const setPkPadre = new Set(
+              lsGrl.map(r => safe(r.split("|")[2]))
+            );
+            const setPkHijo = new Set(listaResult.map(r => safe(r)));
+            const nuevosItems = [];
+
+            const nueva42 = prev42 => {
+              const lista42 = prev42 ?? [];
+              const actualizados = lista42.map(item => {
+                const partes = item.split("|");
+                const pk = safe(partes[1]);
+                const pkPadre = safe(partes[2]);
+                if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
+                  const nuevo = mapLsGrl.get(pk);
+                  if (nuevo) return nuevo;
+                }
+                return item;
+              });
+              for (const [pk, value] of mapLsGrl.entries()) {
+                const existe = lista42.some(item => {
+                  const p = item.split("|");
+                  return safe(p[1]) === pk;
+                });
+                if (!existe) {
+                  nuevosItems.push(value);
+                }
+              }
+              return [...actualizados, ...nuevosItems];
+            };
+
+            setMapaListas(prev => ({
+                ...prev,
+                ...(nueva41 && { 41: nueva41(prev[41]) }),
+                ...(nueva42 && { 42: nueva42(prev[42]) }),
+              }));
           }
         }
       } else {
@@ -935,12 +1008,13 @@ const PageFormatoEDL = () => {
 
       const cambioDetalle = obtenerCambiosDetalle();
       if (cambioDetalle.length > 0) {
-
         const listaDetalleEnviar = "~".concat([
-          usuario.split("|")[0],
-          getCamposPorGrupo(currentRef, "4"),
-          cambioDetalle.join("|")
-        ].join("|"));
+            usuario.split("|")[0],
+            getCamposPorGrupo(currentRef, "4"),
+            cambioDetalle.join("|")
+          ]
+          .join("|")
+        );
 
         setShowConfirm({
           visible: true,
@@ -991,11 +1065,15 @@ const PageFormatoEDL = () => {
           })
 
         } else {
-
           const cambioDetalle = obtenerCambiosDetalle();
           if (cambioDetalle.length > 0) {
-            const listaDetalleEnviar =
-              [getCamposPorGrupo(currentRef, "4"), cambioDetalle].join("|")
+            const listaDetalleEnviar = [
+                getCamposPorGrupo(currentRef, "4"),
+                cambioDetalle.join("|")
+              ]
+              .filter(Boolean)
+              .join("|")
+
             const dataEnviar =
               [listaCabecera, listaDetalleEnviar].join("~")
 
@@ -1040,7 +1118,6 @@ const PageFormatoEDL = () => {
       })
       .filter((item) => item.grupo === "4")
       .map((item, idx) => renderCampo(item, idx));
-
 
   const renderCampo = (item, idx) => {
     const meta = item.metadata;
