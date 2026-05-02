@@ -222,7 +222,6 @@ export const BaseTablaMatrizBase = ({
           ? prev.filter((i) => i !== index)
           : [...prev, index];
         const isChecked = already ? 0 : 1;
-        // Si marcamos el checkbox para 'index' y ese index estaba seleccionado por radio, quitar el radio
         if (!already && selectedRadio === index) {
           setSelectedRadio(null);
           handleRadioClick?.(null);
@@ -235,7 +234,6 @@ export const BaseTablaMatrizBase = ({
 
         const filaSeleccionada = datosTabla[index];
         if (filaSeleccionada) {
-          // const filaConIndex = [...filaSeleccionada.completa, isChecked, index];
           handleCheckDelete?.({
             fila: filaSeleccionada.completa,
             index: originalIndex,
@@ -329,13 +327,6 @@ export const BaseTablaMatrizBase = ({
   );
 
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleKeyDown]);
-
-  useEffect(() => {
     if (selectedIndex != null) {
       rowVirtualizer.scrollToIndex(selectedIndex, {
         align: "center",
@@ -370,6 +361,7 @@ export const BaseTablaMatrizBase = ({
         "
         onScroll={() => syncScroll("table")}
         tabIndex={0}
+        onKeyDown={handleKeyDown}
       >
         {/* Título */}
         <div className="

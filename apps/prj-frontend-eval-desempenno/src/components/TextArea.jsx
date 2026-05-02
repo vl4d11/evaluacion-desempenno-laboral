@@ -23,7 +23,6 @@ const TextArea = forwardRef(function TextArea(
   const [error, setError] = useState(valorInicial?.error ?? false);
   const [enabledState, setEnabledState] = useState(enabled);
   const [hiddenState, setHiddenState] = useState(hidden);
-  // const [textValue, setTextValue] = useState(value ?? valorInicial?.valor ?? "");
 
   // useEffect(() => {
   //   // SOLO DEBUG
@@ -48,7 +47,6 @@ const TextArea = forwardRef(function TextArea(
     if (lines.length > 6) {
       v = lines.slice(0, 6).join("\n");
     }
-    // setTextValue(v);
     onChange?.(v);
   };
 
@@ -77,7 +75,6 @@ const TextArea = forwardRef(function TextArea(
     getNroRef: () => initialValue.current?.nro_ref ?? "",
     getPosi: () => initialValue.current?.posicion ?? "",
     setValue: (v) => {
-      // setTextValue(v ?? "");
       if (inputRef.current) inputRef.current.value = v ?? "";
     },
     setValor: (v) => {
@@ -116,7 +113,6 @@ const TextArea = forwardRef(function TextArea(
         )}
         <textarea
           ref={inputRef}
-          // value={textValue}
           defaultValue={value}
           rows={rows}
           maxLength={maxLength}
