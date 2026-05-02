@@ -47,7 +47,6 @@ const PageFormatoEDL = () => {
     SOLO_CAB: 1,
     SOLO_DET: 2,
   });
-  const [step, setStep] = useState(STEP.CAB_DET);
   const [showModalDetalle, setShowModalDetalle] = useState(
     { open: false, title: "" }
   );
@@ -437,6 +436,9 @@ const PageFormatoEDL = () => {
   };
 
   const handleFilaSeleccionada = ({ fila, index }) => {
+
+    console.log("fila seleccionada:", fila)
+
     setFilaSeleccionadaConIndex({ fila, index });
     const tituloLocal = configTable?.title ?? configTableBase?.title;
     const evalCab = tituloLocal?.startsWith("Lista") ?? false;
@@ -466,6 +468,11 @@ const PageFormatoEDL = () => {
 
           ref?.setValue?.(valTmp);
           if (typeof ref?.setValor === "function") {
+
+            if (ref.getNroRef() === "17") {
+              console.log("mensaje:",valTmp)
+            }
+
             ref.setValor(valTmp);
           } else if (ref) {
             ref.valor = valTmp;
@@ -596,9 +603,13 @@ const PageFormatoEDL = () => {
         },
         (prevLista) => {
           let nuevaLista;
-
           if ((prevLista ?? []).length <= 2) {
-            const labelGrillaDeta = (prevLista ?? []).slice(0, 2);
+            let labelGrillaDeta = (prevLista ?? []).slice(0, 2);
+
+            if (labelGrillaDeta.length === 0 && NUEVO_GLOBAL) {
+              labelGrillaDeta = mapaListas?.[42]?.slice(1, 3) ?? [];
+            }
+
             nuevaLista = NUEVO_GLOBAL
               ? [...labelGrillaDeta, filaNuevo]
               : [filaNuevo];
@@ -698,7 +709,7 @@ const PageFormatoEDL = () => {
       .join("|");
   };
 
-  const handleApiEnvio = async (datosEnv) => {
+  const handleApiEnvio = async (datosEnv, step) => {
     if (isLoading) return;
     setIsLoading(true);
     setMalResult("");
@@ -724,17 +735,18 @@ const PageFormatoEDL = () => {
         cardRef.current[1].setTitle("Editar Formato de Evaluación :")
 
         console.log("Rpsta del API:", result)
-        console.log("NUEVO", NUEVO)
-        console.log("step", step)
-
 
         if (NUEVO) {
+          console.log("STEP.CAB_DET", step)
+
           const listaResult = result.split("|")
           const clave = listaResult[0]
           const listaDetalle = listaResult.slice(1)
 
           await esperarRenderCompleto();
           const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", clave, true)
+
+          console.log("listaCabecera", listaCabecera)
 
           const lsGrl = listaData.slice(2).map((item, idx) => {
             const partes = item.split("|");
@@ -785,7 +797,8 @@ const PageFormatoEDL = () => {
 
         } else {
           if (step === STEP.SOLO_CAB) {
-            console.log("STEP.SOLO_CAB", STEP.SOLO_CAB)
+            console.log("EDITAR STEP.SOLO_CAB", step)
+
             await esperarRenderCompleto();
             const listaCabecera = snapshotSimpleByGrupo(currentRef, "1", result, true)
 
@@ -798,8 +811,9 @@ const PageFormatoEDL = () => {
             }));
           }
           if (step === STEP.SOLO_DET) {
-            const listaResult = result.split("|")
+            console.log("EDITAR STEP.SOLO_DET", step)
 
+            const listaResult = result.split("|")
             const existingPk = new Set(
               listaData.slice(2).map(item => safe(item.split("|")[1]))
             );
@@ -837,6 +851,7 @@ const PageFormatoEDL = () => {
             listaTemp.push(...listaTempFiltrado)
             setListaData(listaTemp)
 
+
             const lsGrl = listaTempFiltrado.map(item =>
               item.split("|").slice(0, 6).join("|")
             );
@@ -853,32 +868,39 @@ const PageFormatoEDL = () => {
             const setPkHijo = new Set(listaResult.map(r => safe(r)));
             const nuevosItems = [];
 
-            // setMapaListas(prev => {
-            //   const lista42 = prev[42] ?? [];
-            //   const actualizados = lista42.map(item => {
-            //     const partes = item.split("|");
-            //     const pk = safe(partes[1]);
-            //     const pkPadre = safe(partes[2]);
-            //     if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
-            //       const nuevo = mapLsGrl.get(pk);
-            //       if (nuevo) return nuevo;
-            //     }
-            //     return item;
-            //   });
-            //   for (const [pk, value] of mapLsGrl.entries()) {
-            //     const existe = lista42.some(item => {
-            //       const p = item.split("|");
-            //       return safe(p[1]) === pk;
-            //     });
-            //     if (!existe) {
-            //       nuevosItems.push(value);
-            //     }
-            //   }
-            //   return {
-            //     ...prev,
-            //     42: [...actualizados, ...nuevosItems],
-            //   };
-            // });
+            // NOTA: TAMBIEN ACA PUEDE EXISTS CAB_DET
+            // =====================================
+
+            setMapaListas(prev => {
+              const lista42 = prev[42] ?? [];
+              const actualizados = lista42.map(item => {
+                const partes = item.split("|");
+                const pk = safe(partes[1]);
+                const pkPadre = safe(partes[2]);
+                if (setPkPadre.has(pkPadre) && setPkHijo.has(pk)) {
+                  const nuevo = mapLsGrl.get(pk);
+                  if (nuevo) return nuevo;
+                }
+                return item;
+              });
+              for (const [pk, value] of mapLsGrl.entries()) {
+                const existe = lista42.some(item => {
+                  const p = item.split("|");
+                  return safe(p[1]) === pk;
+                });
+                if (!existe) {
+                  nuevosItems.push(value);
+                }
+              }
+              return {
+                ...prev,
+                42: [...actualizados, ...nuevosItems],
+              };
+            });
+          }
+          if (step === STEP.CAB_DET) {
+
+            console.log("EDITAR STEP.CAB_DET", step)
           }
         }
       } else {
@@ -924,8 +946,7 @@ const PageFormatoEDL = () => {
           visible: true,
           message: "¿Cambios en detalle, Deseas Guardar ?",
           onConfirm: () => {
-            handleApiEnvio(listaDetalleEnviar);
-            setStep(STEP.SOLO_DET);
+            handleApiEnvio(listaDetalleEnviar, STEP.SOLO_DET);
           }
         })
 
@@ -965,8 +986,7 @@ const PageFormatoEDL = () => {
             visible: true,
             message: "¿Deseas Guardar la Informacion ?",
             onConfirm: () => {
-              handleApiEnvio(dataEnviar);
-              setStep(STEP.CAB_DET);
+              handleApiEnvio(dataEnviar, STEP.CAB_DET);
             }
           })
 
@@ -983,8 +1003,7 @@ const PageFormatoEDL = () => {
               visible: true,
               message: "¿Cambios en Cabecera y Detalle, Deseas Guardar ?",
               onConfirm: () =>{
-                handleApiEnvio(dataEnviar);
-                setStep(STEP.CAB_DET);
+                handleApiEnvio(dataEnviar, STEP.CAB_DET);
               }
             })
 
@@ -994,8 +1013,7 @@ const PageFormatoEDL = () => {
               visible: true,
               message: "¿Cambios solo en Cabecera, Deseas Guardar ?",
               onConfirm: () => {
-                handleApiEnvio(dataEnviar);
-                setStep(STEP.SOLO_CAB);
+                handleApiEnvio(dataEnviar, STEP.SOLO_CAB);
               }
             });
           }
