@@ -105,7 +105,6 @@ const PageFormatoEDL = () => {
 
   }, [listasData, normalizarMapa]);
 
-
   const cardDetalleConfig = useMemo(() => {
     const row = mapaListas?.[22]?.find((r) => r.startsWith("4|"));
     if (!row) return null;
@@ -744,7 +743,7 @@ const PageFormatoEDL = () => {
 
           setMapaListas(prev => ({
             ...prev,
-            41: [...(prev[41] ?? []), listaCabecera],
+            41: [...(prev[41] ?? []).slice(0,3), listaCabecera, ...(prev[41] ?? []).slice(3)],
             42: [...(prev[42] ?? []), ...lsGrl]
           }));
 
